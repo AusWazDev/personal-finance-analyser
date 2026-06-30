@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="/static/base.css">
+<title>Import Statements — Personal Finance Analyser</title>
+<style>
+.import-wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; }
+
+/* Drop zone */
+.import-drop-zone {
+  border: 3px dashed var(--accent);
+  border-radius: 16px;
+  padding: 52px 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: background .2s, border-color .2s;
+  background: var(--surface-1);
+  margin-bottom: 12px;
+}
+.import-drop-zone:hover, .import-drop-zone.drag-over {
+  background: rgba(42,157,143,.08);
+  border-color: #1a7a6e;
+}
+.import-drop-icon  { font-size: 3rem; margin-bottom: 12px; }
+.import-drop-title { font-size: 1.2rem; font-weight: 700; color: var(--text-1); margin-bottom: 6px; }
+.import-drop-sub   { font-size: .85rem; color: var(--text-2); }
+.import-drop-types { font-size: .78rem; color: var(--text-2); margin-top: 8px;
+                     letter-spacing: .02em; }
+
+.import-btn {
+  display: inline-block;
+  margin-top: 18px;
+  padding: 12px 32px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s;
+}
+.import-btn:hover { background: #1a7a6e; }
+.import-btn:disabled { background: #999; cursor: default; }
+
+/* Status */
+#import-status-bar {
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: .9rem;
+  font-weight: 600;
+  display: none;
+  margin-bottom: 16px;
+  align-items: center;
+  gap: 12px;
+}
+#import-status-bar.success { background: rgba(42,157,143,.12); color: #1a7a6e; display: flex; }
+#import-status-bar.error   { background: rgba(230,57,70,.1);   color: #c0392b; display: flex; }
+#import-status-bar.info    { background: rgba(42,157,143,.08); color: var(--accent); display: flex; }
+
+#import-file-list { font-size: .85rem; color: var(--text-2); margin-bottom: 8px; min-height: 24px; }
+
+/* Assign stage */
+#import-assign-stage { display: none; }
+.assign-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.assign-row span { flex: 1; font-size: .82rem; color: var(--text-2);
+                   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.assign-row select { flex: 1; padding: 5px 8px; border: 1px solid var(--border);
+                     border-radius: 7px; font-size: .82rem; background: var(--surface-1); color: var(--text-1); }
+
+/* Progress bar */
+#import-progress-wrap { display: none; margin: 12px 0; }
+#import-progress-bar  { height: 6px; background: var(--accent); border-radius: 3px;
+                         width: 0; transition: width .4s ease; }
+#import-progress-bg   { background: var(--border); border-radius: 3px; overflow: hidden; }
+#import-progress-msg  { font-size: .8rem; color: var(--text-2); margin-top: 5px; }
+
+/* Stats bar */
+.import-stats {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  background: var(--surface-1); border-radius: 12px; padding: 16px 20px;
+  border: 1px solid var(--border); margin-bottom: 28px;
+}
+.import-stat { text-align: center; flex: 1; min-width: 100px; }
+.import-stat-val { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
+.import-stat-lbl { font-size: .75rem; color: var(--text-2); margin-top: 2px; }
+
+/* Bank guides */
+.guides-heading { font-size: 1.1rem; font-weight: 700; color: var(--text-1);
+                   margin: 32px 0 14px; }
+.bank-card { background: var(--surface-1); border: 1px solid var(--border);
+             border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+.bank-card-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 20px; cursor: pointer; user-select: none;
+  transition: background .15s;
+}
+.bank-card-header:hover { background: rgba(42,157,143,.06); }
+.bank-icon  { font-size: 1.4rem; width: 32px; text-align: center; flex-shrink: 0; }
+.bank-name  { font-weight: 700; color: var(--text-1); flex: 1; font-size: .95rem; }
+.bank-fmt   { font-size: .75rem; color: var(--text-2); }
+.bank-chevron { font-size: .8rem; color: var(--text-2); transition: transform .2s; }
+.bank-card.open .bank-chevron { transform: rotate(90deg); }
+
+.bank-body  { display: none; padding: 0 20px 20px; border-top: 1px solid var(--border); }
+.bank-card.open .bank-body { display: block; }
+
+.bank-steps { margin: 14px 0 0; padding: 0; list-style: none; }
+.bank-steps li {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .88rem;
+  color: var(--text-1);
+}
+.bank-steps li:last-child { border-bottom: none; }
+.step-num {
+  background: var(--accent); color: #fff; border-radius: 50%;
+  width: 22px; height: 22px; font-size: .72rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+}
+.bank-tip { font-size: .8rem; color: var(--text-2); margin-top: 10px;
+            background: rgba(42,157,143,.07); border-radius: 8px; padding: 10px 14px; }
+.bank-link {
+  display: inline-block; margin-top: 12px; padding: 8px 18px;
+  background: var(--accent); color: #fff; border-radius: 8px;
+  font-size: .82rem; font-weight: 600; text-decoration: none; transition: background .15s;
+}
+.bank-link:hover { background: #1a7a6e; }
+</style>
+</head>
+<body>
+{% set active_section = 'data' %}
+{% include 'partials/_nav.html' %}
+
+<div class="import-wrap">
+
+  <h1 style="font-size:1.4rem;font-weight:700;color:var(--text-1);margin:0 0 6px">Import Bank Statements</h1>
+  <p style="font-size:.88rem;color:var(--text-2);margin:0 0 24px">
+    Drop your statement files below — the app detects your bank automatically and imports in the background.
+  </p>
+
+  {% if txn_count %}
+  <div class="import-stats">
+    <div class="import-stat">
+      <div class="import-stat-val">{{ "{:,}".format(txn_count) }}</div>
+      <div class="import-stat-lbl">transactions on file</div>
+    </div>
+    {% if latest_date %}
+    <div class="import-stat">
+      <div class="import-stat-val">{{ latest_date }}</div>
+      <div class="import-stat-lbl">most recent transaction</div>
+    </div>
+    {% endif %}
+    <div class="import-stat" style="flex:2;text-align:left;display:flex;align-items:center">
+      <div>
+        <div style="font-size:.83rem;color:var(--text-2)">Import new statements any time to top up your data.</div>
+        <a href="/dashboard" style="font-size:.82rem;color:var(--accent);font-weight:600;text-decoration:none">
+          View dashboard &#8594;
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Drop zone -->
+  <div id="import-drop-zone" class="import-drop-zone"
+       onclick="document.getElementById('import-file-input').click()"
+       ondragover="event.preventDefault();this.classList.add('drag-over')"
+       ondragleave="this.classList.remove('drag-over')"
+       ondrop="handleImportDrop(event)">
+    <div class="import-drop-icon">&#128196;</div>
+    <div class="import-drop-title">Drop statement files here, or click to browse</div>
+    <div class="import-drop-sub">Import runs automatically after upload</div>
+    <div class="import-drop-types">.csv &nbsp;&bull;&nbsp; .pdf &nbsp;&bull;&nbsp; .html &nbsp;&bull;&nbsp; .ofx &nbsp;&bull;&nbsp; .qfx</div>
+  </div>
+  <input type="file" id="import-file-input" multiple
+         accept=".csv,.pdf,.html,.ofx,.qfx,.CSV,.PDF,.HTML,.OFX,.QFX"
+         style="display:none" onchange="handleImportSelect(this.files)">
+
+  <div id="import-file-list"></div>
+
+  <div id="import-status-bar"></div>
+
+  <div id="import-progress-wrap">
+    <div id="import-progress-bg"><div id="import-progress-bar"></div></div>
+    <div id="import-progress-msg">Importing…</div>
+  </div>
+
+  <div id="import-assign-stage">
+    <p style="font-size:.85rem;color:#a16207;font-weight:600;margin:0 0 10px">
+      &#9888; These files weren't recognised — select a bank for each:
+    </p>
+    <div id="import-assign-list"></div>
+    <button class="import-btn" style="margin-top:14px" onclick="submitAssignments()">Assign &amp; Import</button>
+  </div>
+
+  <button id="import-upload-btn" class="import-btn" onclick="submitImportUpload()" style="display:none">
+    Upload &amp; Import
+  </button>
+
+  <!-- Bank export guides -->
+  <div class="guides-heading">How to export from your bank</div>
+  <p style="font-size:.83rem;color:var(--text-2);margin:-8px 0 18px">
+    Click your bank to see step-by-step export instructions, then drop the file above.
+  </p>
+
+  {% set banks = [
+    {
+      "name": "ANZ",
+      "icon": "&#127979;",
+      "fmt": "CSV",
+      "url": "https://www.anz.com.au/ways-to-bank/internet-banking/",
+      "steps": [
+        "Log in to <strong>ANZ Internet Banking</strong> at anz.com.au",
+        "Go to <strong>My Accounts</strong> and select your account",
+        "Click <strong>Transaction history</strong>",
+        "Select your date range (up to 12 months at a time)",
+        "Click <strong>Download</strong> and choose <strong>CSV</strong>",
+        "Drop the downloaded file above"
+      ],
+      "tip": "ANZ Plus app users: go to your account in the app → tap the three dots → Export statement → choose CSV."
+    },
+    {
+      "name": "CommBank",
+      "icon": "&#127968;",
+      "fmt": "CSV or OFX",
+      "url": "https://www.commbank.com.au/digital-banking/netbank.html",
+      "steps": [
+        "Log in to <strong>NetBank</strong> at netbank.com.au",
+        "Click <strong>My accounts</strong> and select your account",
+        "Click <strong>View transaction details</strong> or <strong>Transaction history</strong>",
+        "Set your date range and click <strong>Export</strong>",
+        "Choose <strong>CSV</strong> (or <strong>OFX</strong> for richer data)",
+        "Drop the downloaded file above"
+      ],
+      "tip": "CommBank OFX files (.ofx) are also supported and include more transaction detail than CSV."
+    },
+    {
+      "name": "Westpac",
+      "icon": "&#128308;",
+      "fmt": "CSV",
+      "url": "https://banking.westpac.com.au/",
+      "steps": [
+        "Log in to <strong>Westpac Online Banking</strong>",
+        "Select your account from the left panel",
+        "Click <strong>Transaction history</strong>",
+        "Set your date range",
+        "Click <strong>Export</strong> and choose <strong>CSV</strong>",
+        "Drop the downloaded file above"
+      ],
+      "tip": "Westpac exports as 'Transaction Date, Description, Debit, Credit, Balance' — detected automatically."
+    },
+    {
+      "name": "NAB",
+      "icon": "&#127988;",
+      "fmt": "CSV",
+      "url": "https://www.nab.com.au/personal/internet-banking",
+      "steps": [
+        "Log in to <strong>NAB Internet Banking</strong> at nab.com.au",
+        "Click <strong>Accounts</strong> and select your account",
+        "Click <strong>Transaction list</strong>",
+        "Select your date range",
+        "Click <strong>Export transactions</strong> and choose <strong>CSV</strong>",
+        "Drop the downloaded file above"
+      ],
+      "tip": "NAB dates use DD-Mon-YYYY format (e.g. 09-Jan-2024) — detected automatically, no manual setup needed."
+    },
+    {
+      "name": "28 Degrees / Latitude",
+      "icon": "&#128179;",
+      "fmt": "HTML or PDF",
+      "url": "https://www.latitudefinancial.com.au/",
+      "steps": [
+        "Log in to <strong>My28Degrees</strong> or the <strong>Latitude</strong> portal",
+        "Go to <strong>Statements</strong>",
+        "Open a statement month and use <strong>Save page as…</strong> in your browser (HTML format)",
+        "Alternatively download the <strong>PDF</strong> statement",
+        "Drop the HTML or PDF file above"
+      ],
+      "tip": "HTML format gives the best data quality. In Chrome: Ctrl+S → 'Webpage, Complete'."
+    },
+    {
+      "name": "PayPal",
+      "icon": "&#128179;",
+      "fmt": "CSV",
+      "url": "https://www.paypal.com/activities",
+      "steps": [
+        "Log in to <strong>PayPal</strong> at paypal.com",
+        "Go to <strong>Activity</strong> (top menu)",
+        "Click <strong>Statements</strong> → <strong>Download transactions</strong>",
+        "Select your date range and choose <strong>CSV</strong>",
+        "Click <strong>Create report</strong>, wait for it to generate, then download",
+        "Drop the CSV file above"
+      ],
+      "tip": "PayPal reports can take a minute to generate — you'll get an email when ready."
+    },
+    {
+      "name": "Revolut",
+      "icon": "&#9899;",
+      "fmt": "CSV",
+      "url": "https://www.revolut.com/",
+      "steps": [
+        "Open the <strong>Revolut app</strong> on your phone",
+        "Tap your account balance at the top",
+        "Tap the <strong>&#8801; menu</strong> (three lines) → <strong>Statement</strong>",
+        "Choose your date range and select <strong>Excel / CSV</strong>",
+        "Share or download the file, then drop it above"
+      ],
+      "tip": "Revolut FX transactions are automatically converted to AUD using the balance delta method."
+    },
+    {
+      "name": "Wise",
+      "icon": "&#127758;",
+      "fmt": "PDF",
+      "url": "https://wise.com/",
+      "steps": [
+        "Log in to <strong>Wise</strong> at wise.com",
+        "Go to <strong>Account statement</strong> (under your balance)",
+        "Select your currency account and date range",
+        "Click <strong>Download PDF</strong>",
+        "Drop the PDF above"
+      ],
+      "tip": "Wise PDF statements show AUD amounts regardless of original currency — no FX conversion needed."
+    },
+    {
+      "name": "Any bank (OFX / QFX)",
+      "icon": "&#128229;",
+      "fmt": "OFX / QFX",
+      "url": "",
+      "steps": [
+        "Log in to your bank's online banking",
+        "Find the <strong>Export</strong> or <strong>Download transactions</strong> option",
+        "Choose <strong>OFX</strong>, <strong>QFX</strong>, or <strong>Money</strong> format",
+        "Drop the downloaded .ofx or .qfx file above"
+      ],
+      "tip": "OFX is a standard format supported by most Australian banks. If your bank isn't listed above, try OFX export first."
+    }
+  ] %}
+
+  {% for bank in banks %}
+  <div class="bank-card" id="bank-{{ loop.index }}">
+    <div class="bank-card-header" onclick="toggleBank('bank-{{ loop.index }}')">
+      <span class="bank-icon">{{ bank.icon }}</span>
+      <span class="bank-name">{{ bank.name }}</span>
+      <span class="bank-fmt">{{ bank.fmt }}</span>
+      <span class="bank-chevron">&#9654;</span>
+    </div>
+    <div class="bank-body">
+      <ol class="bank-steps">
+        {% for step in bank.steps %}
+        <li>
+          <span class="step-num">{{ loop.index }}</span>
+          <span>{{ step }}</span>
+        </li>
+        {% endfor %}
+      </ol>
+      {% if bank.tip %}
+      <div class="bank-tip">&#128161; {{ bank.tip }}</div>
+      {% endif %}
+      {% if bank.url %}
+      <a class="bank-link" href="{{ bank.url }}" target="_blank" rel="noopener">
+        Open {{ bank.name }} online banking &#8599;
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+
+</div><!-- .import-wrap -->
+
+<script>
+var _importFiles = [];
+
+function toggleBank(id) {
+  var card = document.getElementById(id);
+  card.classList.toggle('open');
+}
+
+function handleImportDrop(e) {
+  e.preventDefault();
+  document.getElementById('import-drop-zone').classList.remove('drag-over');
+  handleImportSelect(e.dataTransfer.files);
+}
+
+function handleImportSelect(files) {
+  var existing = new Set(_importFiles.map(function(f){ return f.name; }));
+  Array.from(files).forEach(function(f){ if (!existing.has(f.name)) _importFiles.push(f); });
+  _renderFileList();
+  document.getElementById('import-upload-btn').style.display = _importFiles.length ? 'inline-block' : 'none';
+  document.getElementById('import-status-bar').className = '';
+  document.getElementById('import-status-bar').textContent = '';
+}
+
+function _renderFileList() {
+  var el = document.getElementById('import-file-list');
+  if (!_importFiles.length) { el.innerHTML = ''; return; }
+  el.innerHTML = _importFiles.map(function(f) {
+    return '<span style="display:inline-block;margin:3px 6px 3px 0;padding:3px 10px;'
+         + 'background:var(--surface-2);border-radius:6px;font-size:.8rem;color:var(--text-1)">'
+         + '&#128196; ' + f.name + '</span>';
+  }).join('');
+}
+
+function _setStatus(type, msg) {
+  var el = document.getElementById('import-status-bar');
+  el.className = type;
+  el.innerHTML = msg;
+}
+
+function submitImportUpload() {
+  if (!_importFiles.length) return;
+  var btn = document.getElementById('import-upload-btn');
+  btn.disabled = true; btn.textContent = 'Uploading…';
+
+  var fd = new FormData();
+  _importFiles.forEach(function(f){ fd.append('files', f); });
+
+  fetch('/api/upload', { method: 'POST', body: fd })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      btn.disabled = false; btn.textContent = 'Upload & Import';
+      if (!d.ok) { _setStatus('error', '&#10006; ' + (d.error || 'Upload failed')); return; }
+
+      var unknCsv  = d.unknown_csvs  || [];
+      var unknNon  = d.unknown_noncsvs || [];
+      var profiles = d.bank_profiles  || [];
+      var accts    = d.config_accounts || [];
+      _importFiles = [];
+      _renderFileList();
+
+      if ((unknCsv.length || unknNon.length) && (profiles.length || accts.length)) {
+        _showAssignStage(unknCsv, profiles, unknNon, accts);
+        _setStatus('info', '&#9432; ' + d.count + ' file(s) uploaded — please assign bank for unrecognised files below.');
+      } else {
+        _setStatus('success', '&#10003; ' + d.count + ' file(s) queued — import running in the background. '
+          + '<a href="/dashboard" style="color:var(--accent);font-weight:700">View dashboard &#8594;</a>');
+        _startProgressPoll();
+      }
+    })
+    .catch(function(e){ _setStatus('error', 'Network error: ' + e); btn.disabled = false; btn.textContent = 'Upload & Import'; });
+}
+
+function _showAssignStage(unknownCsvs, profiles, unknownNonCsvs, configAccounts) {
+  function _esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  var rows = [];
+  var profOpts = profiles.map(function(p){ return '<option value="'+_esc(p.key)+'">'+_esc(p.account)+'</option>'; }).join('');
+  unknownCsvs.forEach(function(fn){
+    rows.push('<div class="assign-row">'
+      + '<span title="'+_esc(fn)+'">&#128196; '+_esc(fn)+'</span>'
+      + '<select data-filename="'+_esc(fn)+'" data-assign-type="profile">'
+      + '<option value="">— select bank profile —</option>'+profOpts+'</select></div>');
+  });
+  var acctOpts = configAccounts.map(function(a){ return '<option value="'+_esc(a.key)+'">'+_esc(a.name)+'</option>'; }).join('');
+  unknownNonCsvs.forEach(function(fn){
+    rows.push('<div class="assign-row">'
+      + '<span title="'+_esc(fn)+'">&#128196; '+_esc(fn)+'</span>'
+      + '<select data-filename="'+_esc(fn)+'" data-assign-type="account">'
+      + '<option value="">— select account —</option>'+acctOpts+'</select></div>');
+  });
+  document.getElementById('import-assign-list').innerHTML = rows.join('');
+  document.getElementById('import-assign-stage').style.display = 'block';
+}
+
+function submitAssignments() {
+  var selects = document.querySelectorAll('#import-assign-list select');
+  var csvAssign = [], acctAssign = [];
+  selects.forEach(function(s){
+    if (!s.value) return;
+    if (s.dataset.assignType === 'profile') {
+      csvAssign.push({ filename: s.dataset.filename, profile_key: s.value });
+    } else {
+      acctAssign.push({ filename: s.dataset.filename, account_key: s.value });
+    }
+  });
+  fetch('/api/upload/assign-accounts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ assignments: csvAssign, account_assignments: acctAssign })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    document.getElementById('import-assign-stage').style.display = 'none';
+    _setStatus('success', '&#10003; Accounts assigned — import running in the background. '
+      + '<a href="/dashboard" style="color:var(--accent);font-weight:700">View dashboard &#8594;</a>');
+    _startProgressPoll();
+  })
+  .catch(function(e){ _setStatus('error', 'Error: ' + e); });
+}
+
+function _startProgressPoll() {
+  var wrap = document.getElementById('import-progress-wrap');
+  var bar  = document.getElementById('import-progress-bar');
+  var msg  = document.getElementById('import-progress-msg');
+  wrap.style.display = 'block';
+  var pct = 10;
+  bar.style.width = pct + '%';
+
+  // Poll /api/run-metrics until pipeline_error clears or a new transaction appears
+  var _polls = 0;
+  var _interval = setInterval(function() {
+    _polls++;
+    pct = Math.min(90, pct + 8);
+    bar.style.width = pct + '%';
+    fetch('/api/run-metrics').then(function(r){ return r.json(); }).then(function(m){
+      if (m.pipeline_error) {
+        clearInterval(_interval);
+        bar.style.width = '100%'; bar.style.background = '#E63946';
+        msg.textContent = 'Import error — check Data/pipeline.log for details.';
+      } else if (_polls >= 8) {
+        clearInterval(_interval);
+        bar.style.width = '100%';
+        msg.innerHTML = 'Import complete. <a href="/dashboard" style="color:var(--accent);font-weight:600">View dashboard &#8594;</a>';
+      }
+    }).catch(function(){});
+  }, 2500);
+}
+</script>
+</body>
+</html>

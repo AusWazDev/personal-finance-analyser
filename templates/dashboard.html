@@ -85,6 +85,25 @@ table.dash-tbl tbody tr:hover td { background:rgba(42,157,143,.06); }
 {% set active_section = 'dashboard' %}
 {% include 'partials/_nav.html' %}
 
+{% if first_run %}
+<div style="background:linear-gradient(135deg,#2a9d8f,#264653);border-radius:14px;padding:40px 36px;
+     margin-bottom:28px;color:#fff;text-align:center">
+  <div style="font-size:2.5rem;margin-bottom:12px">&#128200;</div>
+  <h2 style="margin:0 0 10px;font-size:1.5rem;font-weight:700">Welcome to Personal Finance Analyser</h2>
+  <p style="margin:0 0 24px;font-size:1rem;opacity:.9;max-width:480px;margin-left:auto;margin-right:auto">
+    No transactions yet. Import your first bank statements to see your spending dashboard.
+  </p>
+  <a href="/import" style="display:inline-block;padding:14px 36px;background:#fff;color:#264653;
+     border-radius:10px;font-weight:700;font-size:1rem;text-decoration:none;
+     box-shadow:0 2px 8px rgba(0,0,0,.15)">
+    &#8593; Import Bank Statements
+  </a>
+  <p style="margin:20px 0 0;font-size:.82rem;opacity:.7">
+    Supports ANZ &middot; CommBank &middot; Westpac &middot; NAB &middot; 28 Degrees &middot; PayPal &middot; Revolut &middot; Wise &middot; OFX
+  </p>
+</div>
+{% endif %}
+
 <!-- Server-side custom date range (narrows which transactions are loaded) -->
 {% if dash_from or dash_to %}
 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;

@@ -931,7 +931,7 @@ def api_upload():
     input_dir = Path(config["data"]["input_dir"])
     input_dir.mkdir(parents=True, exist_ok=True)
 
-    _ALLOWED_EXTS = {".csv", ".CSV", ".pdf", ".PDF", ".html", ".HTML"}
+    _ALLOWED_EXTS = {".csv", ".CSV", ".pdf", ".PDF", ".html", ".HTML", ".ofx", ".OFX", ".qfx", ".QFX"}
     files = request.files.getlist("files")
     if not files:
         return jsonify({"ok": False, "error": "no files"}), 400
@@ -4473,6 +4473,22 @@ def transactions_page():
     )
 
 
+@app.route("/import")
+def import_page():
+    from src.db import load_transactions as _load_txns
+    config = _load_config()
+    df = _load_txns(config)
+    txn_count = len(df)
+    latest_date = df["date"].max().strftime("%d %b %Y").lstrip("0") if txn_count else None
+    return render_template(
+        "import.html",
+        active_tab="import",
+        active_section="data",
+        txn_count=txn_count,
+        latest_date=latest_date,
+    )
+
+
 @app.route("/dashboard")
 def dashboard_page():
     from src.db import load_transactions as _load_txns
@@ -4484,11 +4500,13 @@ def dashboard_page():
     df = _load_txns(config, since=from_date, until=to_date)
     reports_dir = BASE_DIR / "reports"
     data = prepare_dashboard_data(df, config, reports_dir)
+    first_run = df.empty and not from_date and not to_date
     return render_template(
         "dashboard.html",
         active_section="dashboard",
         dash_from=from_date or "",
         dash_to=to_date or "",
+        first_run=first_run,
         **data,
     )
 

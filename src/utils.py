@@ -37,6 +37,7 @@ CATEGORY_COLORS: dict[str, str] = {
 # Single source of truth for the data tab bar — consumed by reporter.py (static HTML)
 # and injected into Jinja globals in server.py (live Flask routes).
 NAV_TABS = [
+    ("Import",           "/import",                    "import",          None),
     ("All Transactions", "/transactions",               "transactions",    None),
     ("Review",           "/review",                    "review",          None),
     ("Transfers",        "/transfers",                 "transfers",       "transfers"),
