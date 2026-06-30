@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Feature Roadmap — Personal Finance Analyser</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1923;color:#e2e8f0;padding:32px 24px;line-height:1.5}
+    h1{font-size:1.8rem;color:#2A9D8F;margin-bottom:6px}
+    .subtitle{color:#64748b;font-size:.95rem;margin-bottom:32px}
+    .legend{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:32px;padding:14px 20px;background:#1d3540;border-radius:10px;align-items:center}
+    .legend-label{font-size:.8rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:6px}
+    .badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:.73rem;font-weight:700;letter-spacing:.03em}
+    .e-s{background:#16423422;color:#2A9D8F;border:1px solid #2A9D8F55}
+    .e-m{background:#1a3a5c22;color:#4cc9f0;border:1px solid #4cc9f066}
+    .e-l{background:#3a2a0022;color:#f4a261;border:1px solid #f4a26155}
+    .e-xl{background:#3a001022;color:#E63946;border:1px solid #E6394655}
+    .st-planned{background:#1d354022;color:#94a3b8;border:1px solid #2e4a5a}
+    .st-next{background:#2A9D8F22;color:#2A9D8F;border:1px solid #2A9D8F55}
+    .st-done{background:#16423422;color:#2A9D8F;border:1px solid #2A9D8F44}
+    .phase{margin-bottom:40px}
+    .phase-header{display:flex;align-items:baseline;gap:14px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #2e4a5a}
+    .phase-num{font-size:2rem;font-weight:800;color:#2e4a5a}
+    .phase-title{font-size:1.25rem;font-weight:700;color:#e2e8f0}
+    .phase-desc{font-size:.88rem;color:#64748b;margin-top:2px}
+    .phase-unlock{font-size:.8rem;color:#2A9D8F;margin-top:4px}
+    .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+    .item{background:#1d3540;border-radius:10px;padding:16px 18px;border-left:3px solid #2e4a5a;transition:border-color .2s}
+    .item:hover{border-left-color:#2A9D8F}
+    .item.priority{border-left-color:#f4a261}
+    .item-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+    .item-name{font-weight:700;color:#e2e8f0;font-size:.95rem;flex:1}
+    .item-desc{font-size:.84rem;color:#94a3b8;line-height:1.45}
+    .item-dep{font-size:.75rem;color:#64748b;margin-top:6px}
+    .item-dep span{color:#4cc9f0}
+    .mod-tag{font-size:.7rem;padding:1px 7px;border-radius:8px;background:#152530;color:#64748b;border:1px solid #2e4a5a}
+    .summary-table{width:100%;border-collapse:collapse;margin-bottom:32px;font-size:.88rem}
+    .summary-table th{text-align:left;padding:8px 14px;color:#94a3b8;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #2e4a5a}
+    .summary-table td{padding:8px 14px;border-bottom:1px solid #1a2e3a;vertical-align:middle}
+    .summary-table tr:hover td{background:rgba(42,157,143,.04)}
+    .count-chip{display:inline-block;padding:1px 8px;border-radius:8px;font-size:.72rem;font-weight:700;background:#152530;color:#64748b;border:1px solid #2e4a5a}
+    h2{font-size:1.1rem;color:#2A9D8F;margin:28px 0 14px}
+    .progress-bar-wrap{background:#152530;border-radius:6px;height:6px;margin-top:10px;overflow:hidden}
+    .progress-bar{height:6px;border-radius:6px;background:linear-gradient(90deg,#2A9D8F,#4cc9f0);transition:width .4s}
+    .done-item .item-name{color:#64748b;text-decoration:line-through}
+    .done-item{opacity:.65}
+  </style>
+</head>
+<body>
+
+<h1>Feature Roadmap</h1>
+<p class="subtitle">Personal Finance Analyser — full feature roadmap as at June 2026</p>
+
+<div class="legend">
+  <span class="legend-label">Effort:</span>
+  <span class="badge e-s">S — hours</span>
+  <span class="badge e-m">M — 1 session</span>
+  <span class="badge e-l">L — 2–3 sessions</span>
+  <span class="badge e-xl">XL — major build</span>
+  <span style="width:1px;background:#2e4a5a;height:20px;margin:0 4px"></span>
+  <span class="legend-label">Status:</span>
+  <span class="badge st-next">Next up</span>
+  <span class="badge st-planned">Planned</span>
+  <span class="badge st-done">Done</span>
+</div>
+
+<h2>Summary</h2>
+<table class="summary-table">
+  <thead><tr><th>Phase</th><th>Focus</th><th>Items</th><th>Key unlock</th></tr></thead>
+  <tbody>
+    <tr><td><strong>0</strong></td><td>Distribution Foundation</td><td><span class="count-chip">9 items</span></td><td>Safe to share with anyone</td></tr>
+    <tr><td><strong>1</strong></td><td>UX Modernisation</td><td><span class="count-chip">9 items</span></td><td>Feels like a real product</td></tr>
+    <tr><td><strong>2</strong></td><td>Financial Intelligence</td><td><span class="count-chip">7 items</span></td><td>Ahead of most consumer apps</td></tr>
+    <tr><td><strong>3</strong></td><td>Balance Sheet Completeness</td><td><span class="count-chip">6 items</span></td><td>True net worth picture</td></tr>
+    <tr><td><strong>4</strong></td><td>Tax &amp; Compliance</td><td><span class="count-chip">5 items</span></td><td>Useful at tax time</td></tr>
+    <tr><td><strong>5</strong></td><td>Ecosystem &amp; Integration</td><td><span class="count-chip">5 items</span></td><td>Power user / professional use</td></tr>
+    <tr><td><strong>B</strong></td><td>Existing Backlog</td><td><span class="count-chip">3 items</span></td><td>Carry-over from prior sessions</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PHASE 0                                                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">0</span>
+    <div>
+      <div class="phase-title">Distribution Foundation ✓</div>
+      <div class="phase-desc">Infrastructure that must exist before sharing with any other user — all 9 items delivered</div>
+      <div class="phase-unlock">✅ Complete</div>
+    </div>
+  </div>
+  <div class="items">
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Module toggle system</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc"><code>src/modules.py</code> — load/save <code>Data/modules.json</code>. Each module has a key, label, description, and default-on/off. Nav tabs and settings tabs filtered by enabled modules at render time. <code>@require_module(key)</code> decorator for route-level guard.</div>
+      <div class="item-dep">Enables: <span>all future module toggles; first-run wizard</span></div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Settings &gt; Modules page</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Toggle switches for all 10 modules: Budgets, Business &amp; Tax, Investments, Loans, Goals, Pay-in-4 / PayPal, Transfers, Commitments, AI Recommendations, Coverage. Changes saved to <code>Data/modules.json</code> and applied immediately without restart.</div>
+      <div class="item-dep">Depends on: <span>Module toggle system</span></div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">First-run setup wizard</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Shown when no <code>Data/modules.json</code> exists. One page: "Tell us about your finances" — checkboxes for business income, PayPal, investments, loans, multiple accounts, AI recommendations. Sets modules config and API key field. Saves config, then redirects to dashboard.</div>
+      <div class="item-dep">Depends on: <span>Module toggle system</span></div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Versioned schema migrations</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Replace ad-hoc <code>init_db()</code> with a <code>schema_version</code> table. Each migration is a numbered function <code>_migrate_v2(conn)</code>, <code>_migrate_v3(conn)</code>, etc. Applied in sequence on startup. Safe for users upgrading between app versions.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Structured logging</span>
+        <span class="badge e-s">S</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Replace <code>print()</code> calls with Python <code>logging</code> module. Log file at <code>Data/app.log</code> with rotation (max 5 MB × 3 files). Levels: INFO for normal flow, WARNING for recoverable issues, ERROR for failures. Log path shown in Settings.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Startup config validation</span>
+        <span class="badge e-s">S</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">On server start, validate <code>config.yaml</code>: required keys present, account names match parsers, data directory writable, API key set if recommendations enabled. Show a clear in-app error banner for any failed check rather than silent failures mid-import.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Generic CSV importer with AI column detection</span>
+        <span class="badge e-l">L</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">User uploads any bank CSV; Claude Haiku inspects the first 10 rows and returns a JSON column mapping (date, description, debit, credit, balance, currency). Mapping saved as a named bank profile in <code>Data/bank_profiles.json</code>. Future uploads from same bank reuse profile — no AI call needed. UI for reviewing / adjusting the detected mapping before committing.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Pluggable AI backend</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Abstract the categorisation API call behind a backend interface. Support two backends: <strong>Claude API</strong> (current — requires API key) and <strong>Ollama</strong> (local LLM, zero API cost). Config: <code>ai_backend: claude</code> or <code>ai_backend: ollama</code> with <code>ollama_model: llama3.2</code>. Falls back to rule-only if neither configured.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Database encryption at rest</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">The SQLite DB contains full financial history and should be encrypted if distributing. Options: <strong>SQLCipher</strong> (encrypted SQLite — requires recompile) or application-level encryption of the file at rest. Passphrase derived from the user's login password or a separate DB key stored in the OS keychain.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PHASE 1                                                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">1</span>
+    <div>
+      <div class="phase-title">UX Modernisation ✓</div>
+      <div class="phase-desc">Features expected by any user of a modern finance app — all 9 items delivered June 2026</div>
+      <div class="phase-unlock">✅ Complete</div>
+    </div>
+  </div>
+  <div class="items">
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Mobile-responsive templates</span>
+        <span class="badge e-l">L</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">All pages work comfortably on a phone screen. Hamburger nav, stacked tables, touch-friendly tap targets, card-based layouts on narrow viewports. Base CSS breakpoints at 768px and 480px. Report pages (generated HTML) need a separate pass as they're not Jinja templates.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Dark / light theme toggle</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">CSS custom properties for all colours in <code>base.css</code>. Light theme overrides via <code>[data-theme="light"]</code> on <code>&lt;html&gt;</code>. Toggle button in nav (sun/moon icon). Preference stored in <code>localStorage</code> and applied before first paint to avoid flash.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Transaction splitting</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Split one transaction into multiple category rows. E.g. $200 Coles → $150 Groceries + $50 Household. Stored as child rows in DB with <code>parent_txn_id</code> link and proportional amounts. Parent shown collapsed in transaction list; expand to see splits. Split rows categorised and reported individually.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Tags</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Cross-category labels for ad-hoc grouping (e.g. "Bali 2025", "Kitchen Reno", "Tax Deductible"). Stored as comma-separated field in DB. Tag filter in transactions page. Tag summary report showing total spend per tag. Tags are additive with categories — not a replacement.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Budget rollover</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+        <span class="mod-tag">budgets</span>
+      </div>
+      <div class="item-desc">Option per category to carry unspent balance to next month. If Dining Out budget is $300 and March spend was $220, April's effective limit is $380. Rollover balance stored in <code>Data/budgets.json</code> alongside the base limit. UI shows base limit + rollover separately.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Subscription management view</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Dedicated page (distinct from Commitments) focused on subscriptions: service name, monthly cost, last charged, next expected charge, total spend YTD, cancellation notes field. Auto-detected from Subscriptions category + commitments detection. Manual add/edit/cancel-noted.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Auto-update checker</span>
+        <span class="badge e-s">S</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">On server start, check GitHub releases API for a newer version tag. If found, show a dismissible banner in the nav: "Version 2.1 available — see what's new". Cached for 24h so it doesn't hit GitHub on every restart. Only relevant for distributed builds.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Crash / error reporting (opt-in)</span>
+        <span class="badge e-s">S</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Sentry integration, off by default, opt-in via <code>config.yaml: error_reporting: true</code>. Captures unhandled exceptions with stack trace and Flask route context. No PII or financial data sent — only code paths and error messages. For personal use this is the "copy this error" UI that appears in a modal when a route 500s.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Multi-currency display</span>
+        <span class="badge e-s">S</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Revolut and Wise transactions stored in AUD but original currency/amount is in the note field. Parse and display it as a secondary line in transaction list: "AUD 47.83 (USD 31.50)". No recalculation — display only. Useful for reviewing FX transactions.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PHASE 2                                                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">2</span>
+    <div>
+      <div class="phase-title">Financial Intelligence</div>
+      <div class="phase-desc">Analysis and insight features that go beyond basic tracking</div>
+      <div class="phase-unlock">🔓 Unlock: competitive with or ahead of most consumer apps</div>
+    </div>
+  </div>
+  <div class="items">
+
+    <div class="item done-item priority">
+      <div class="item-top">
+        <span class="item-name">Dashboard — savings rate &amp; emergency fund</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Two headline KPIs added to the main dashboard: <strong>Savings rate</strong> (income minus expenses ÷ income, monthly trend sparkline) and <strong>Emergency fund runway</strong> (liquid savings balance ÷ avg monthly spend = months covered). Shown as large metric cards alongside existing balance summary.</div>
+    </div>
+
+    <div class="item done-item priority">
+      <div class="item-top">
+        <span class="item-name">Financial health score</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Composite 0–100 score shown on dashboard. Weighted components: savings rate (30%), emergency fund months (25%), budget adherence (20%), debt-to-income ratio (15%), net worth trend (10%). Drill-down panel shows component breakdown and specific improvement suggestions. Score history trended over 12 months.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Bill due date alerts</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+        <span class="mod-tag">commitments</span>
+      </div>
+      <div class="item-desc">Extend Commitments from backward-looking detection to forward-looking alerts. Each detected recurring commitment gets a projected next-due date and estimated amount. Dashboard widget: "Upcoming bills in next 14 days — Electricity est. $185 in 3 days, Netflix $22.99 in 8 days". Alert badge in nav if any bill due within 5 days.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Proactive automated insights</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+        <span class="mod-tag">recommendations</span>
+      </div>
+      <div class="item-desc">Triggered alerts that appear in a notification tray (bell icon in nav) without needing to run on-demand recommendations. Triggers: spend 30%+ above category average, new merchant first seen, budget hit 80%, largest single transaction this month, unusual weekend vs weekday pattern. Powered by rule engine first; Claude Sonnet for narrative if enabled.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Cash flow forecasting with known expenses</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Extend the 12-month cash flow projection to incorporate <strong>known future expenses</strong>: commitments projected forward, bills from due-date alerts, manual one-off entries ("holiday $3,000 in August"). Shows projected balance at end of each month accounting for these. Scenario toggle: optimistic / base / pessimistic (±10% income/spend variance).</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Debt payoff calculator</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+        <span class="mod-tag">loans</span>
+      </div>
+      <div class="item-desc">Snowball / avalanche calculator at <code>GET /debt-payoff</code>. Loans with outstanding balances displayed with per-loan interest rate input (saved via <code>PATCH /api/loans/&lt;id&gt;/interest-rate</code>). Total monthly budget slider allocates extra payment to priority loan. Plotly chart shows balance trajectories per method. <code>payoff_months()</code> and <code>payoff_schedule()</code> added to <code>src/loans.py</code>.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Merchant-level spend analytics</span>
+        <span class="badge e-s">S</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Dedicated merchant analytics view at <code>GET /merchants</code>. Top merchants by total spend, visit frequency, average/max transaction size, last seen date, 6-month sparklines. Client-side search, category filter, and sort buttons. Merchant name links through to transactions page filtered by that merchant. SQL aggregates over DB; top 300 merchants passed as JSON constant to template.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PHASE 3                                                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">3</span>
+    <div>
+      <div class="phase-title">Balance Sheet Completeness</div>
+      <div class="phase-desc">Track all assets and liabilities for a true net worth picture</div>
+      <div class="phase-unlock">🔓 Unlock: complete financial picture beyond bank accounts</div>
+    </div>
+  </div>
+  <div class="items">
+
+    <div class="item done-item priority">
+      <div class="item-top">
+        <span class="item-name">Net worth — manual asset entries</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Add/edit/delete assets (property, super, vehicle, investment, other) on the enhanced <code>GET /net-worth</code> page. Each asset has a snapshot history (+ Snapshot button). Data stored in <code>Data/manual_assets.json</code> via <code>src/manual_assets.py</code>. CRUD via <code>POST/PATCH/DELETE /api/assets/&lt;id&gt;</code> + <code>POST /api/assets/&lt;id&gt;/snapshots</code>.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Net worth — liabilities beyond loans</span>
+        <span class="badge e-s">S</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Liabilities section on Net Worth page: mortgage, HECS/HELP, car finance, credit card, other. Each has type, interest rate, linked asset, and snapshot history. Stored in same <code>Data/manual_assets.json</code> file. CRUD via <code>POST/PATCH/DELETE /api/liabilities/&lt;id&gt;</code> + <code>POST /api/liabilities/&lt;id&gt;/snapshots</code>. Total liabilities subtracted in Net Worth summary card.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Net worth historical chart</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Stacked area Plotly chart on Net Worth page showing bank accounts + manual assets stacked, liabilities as a dotted negative fill, and net worth as a green line. Monthly LOCF (last observation carried forward) computed via <code>compute_net_worth_history()</code> in <code>src/manual_assets.py</code>.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Investment portfolio value tracking</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+        <span class="mod-tag">investments</span>
+      </div>
+      <div class="item-desc">New <code>GET /portfolio</code> page with purchase lot recording (ticker, date, units, cost/unit). Holdings aggregated by ticker showing cost basis, avg cost, and unrealised P&amp;L. Live price fetch via Yahoo Finance (no key, on-demand via ↻ Refresh Prices). Data in <code>Data/portfolio.json</code>. CRUD via <code>POST /api/portfolio/lots</code> + <code>DELETE /api/portfolio/lots/&lt;id&gt;</code>. Links to Capital Gains page.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Superannuation tracking</span>
+        <span class="badge e-s">S</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Super implemented as an asset type on the Net Worth page with additional fields: birth year, retirement age, expected annual return %, and optional annual contribution. Projected balance at retirement computed via <code>super_projected_balance()</code> (compound interest + annuity FV formula). Shows projected value inline on the asset row.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Property equity calculator</span>
+        <span class="badge e-s">S</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Property asset rows on Net Worth page show <em>Equity</em> and <em>LVR %</em> when a mortgage liability is linked via <code>linked_liability_id</code>. LVR colour-coded: teal &lt;80%, amber 80–90%, red &gt;90%.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PHASE 4                                                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">4</span>
+    <div>
+      <div class="phase-title">Tax &amp; Compliance (Australian)</div>
+      <div class="phase-desc">Features that make the app genuinely useful at tax time</div>
+      <div class="phase-unlock">🔓 Unlock: replaces a spreadsheet for ATO reporting prep</div>
+    </div>
+  </div>
+  <div class="items">
+
+    <div class="item done-item priority">
+      <div class="item-top">
+        <span class="item-name">CGT 50% discount eligibility flag</span>
+        <span class="badge e-s">S</span>
+        <span class="badge st-done">Done</span>
+        <span class="mod-tag">investments</span>
+      </div>
+      <div class="item-desc">Capital Gains page redesigned with separate <em>Short-Term Gains</em> (&lt;12 months, fully taxable) and <em>Long-Term Gains</em> (≥12 months, 50% discount eligible) inputs. The 50% CGT discount and net taxable gains are auto-calculated. New <code>short_term_gains</code> / <code>long_term_gains</code> fields added to <code>Data/capital_gains.json</code>; backwards-compatible with legacy records.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Franking credits tracking</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+        <span class="mod-tag">investments</span>
+      </div>
+      <div class="item-desc">New <code>GET /franking-credits</code> page for per-FY manual entry of cash dividends and franking (imputation) credits. Grossed-up total auto-computed. Data stored in <code>Data/franking_credits.json</code>. Included in FY Summary and tax export ZIP. New <code>POST /api/franking-credits</code> endpoint. Added to Investments nav tab group.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">HECS / HELP repayment threshold alert</span>
+        <span class="badge e-s">S</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">HECS/HELP alert rendered inside each FY card on the FY Summary page. If taxable income exceeds the ATO minimum threshold, shows income, rate, and estimated compulsory repayment. Implemented via <code>_fy_hecs_section()</code> in <code>src/reporter.py</code>, using <code>estimate_hecs_repayment()</code> from <code>src/tax_estimator.py</code>.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Income tax estimation</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+        <span class="mod-tag">business</span>
+      </div>
+      <div class="item-desc">Estimated Income Tax section added to each FY card on the FY Summary page. Shows gross tax, LITO reduction, Medicare levy, total payable, and net income after tax. A secondary row shows the adjusted estimate if all recorded GST-claimable and tax-deductible expenses are applied. Implemented via <code>_fy_income_tax_section()</code> in <code>src/reporter.py</code> and <code>src/tax_estimator.py</code> (Stage 3 + pre-Stage-3 bracket functions).</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Tax summary export</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">Download Tax Package button on each FY Summary card. <code>GET /api/tax-export/&lt;fy&gt;</code> returns a ZIP containing <code>summary.txt</code> (income, deductions, estimated tax, HECS), <code>gst_claimable.csv</code>, <code>business_expenses.csv</code>, <code>tax_deductions.csv</code>, <code>capital_gains.csv</code>, <code>franking_credits.csv</code>, and <code>README.txt</code>. Accountant-ready handoff without app access.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PHASE 5                                                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">5</span>
+    <div>
+      <div class="phase-title">Ecosystem &amp; Integration</div>
+      <div class="phase-desc">Connections to external systems and power-user features</div>
+      <div class="phase-unlock">🔓 Unlock: professional-grade and household-shareable</div>
+    </div>
+  </div>
+  <div class="items">
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">PyInstaller / Briefcase bundle</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc"><code>pfa.spec</code> + <code>build_windows.ps1</code>; <code>--onedir</code> output in <code>dist/PersonalFinanceAnalyser/</code> (154 MB, 23.6 MB exe). Auto-opens browser on launch. <code>_BUNDLE_DIR</code> / <code>BASE_DIR</code> split in <code>server.py</code> — read-only assets (templates, static, docs, src) from bundle; user data (config.yaml, Data/) from exe directory. Run <code>.\build_windows.ps1</code> to rebuild after code changes.</div>
+    </div>
+
+    <div class="item">
+      <div class="item-top">
+        <span class="item-name">CDR / open banking integration</span>
+        <span class="badge e-xl">XL</span>
+        <span class="badge st-planned">Planned</span>
+      </div>
+      <div class="item-desc">Australian Consumer Data Right via <strong>Basiq</strong> or <strong>Frollo</strong> API — live transaction feeds from any CDR-accredited bank without CSV downloads. Requires ADR accreditation (complex, costly for a distributed product). For personal use: Basiq has a free developer tier. Transactions fetched daily, deduped by provider transaction ID, fed into existing pipeline.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Xero / MYOB export</span>
+        <span class="badge e-m">M</span>
+        <span class="badge st-done">Done</span>
+        <span class="mod-tag">business</span>
+      </div>
+      <div class="item-desc"><code>src/biz_export.py</code>; <code>GET /api/business-export/&lt;fy&gt;?format=ofx|qif|csv</code>; filters to <code>is_business</code> + <code>is_gst_claimable</code> transactions; OFX 1.02 for Xero, QIF for MYOB; category → account code mapping via <code>business_export.account_codes</code> in config.yaml. "Xero (OFX)" and "MYOB (QIF)" download buttons on each FY Summary card.</div>
+    </div>
+
+    <div class="item">
+      <div class="item-top">
+        <span class="item-name">REST API / webhook system</span>
+        <span class="badge e-l">L</span>
+        <span class="badge st-planned">Planned</span>
+      </div>
+      <div class="item-desc">Documented REST API for power users: <code>GET /api/v1/transactions</code>, <code>GET /api/v1/summary/monthly</code>, <code>POST /api/v1/transactions/categorise</code>. API key auth. Webhook support: fire a POST to a configured URL on new transaction import, budget exceeded, or goal milestone hit. Enables Notion/spreadsheet/Zapier integration.</div>
+    </div>
+
+    <div class="item">
+      <div class="item-top">
+        <span class="item-name">Multi-user / household sharing</span>
+        <span class="badge e-xl">XL</span>
+        <span class="badge st-planned">Planned</span>
+      </div>
+      <div class="item-desc">Allow a second user (partner) to access the same data with their own login. Roles: Owner (full access) and Viewer (read-only) or Co-owner (full access). Each user sees the same transactions but can have their own category overrides. Shared budgets with household totals. Requires proper session management and user table in DB.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- EXISTING BACKLOG                                                        -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-num">B</span>
+    <div>
+      <div class="phase-title">Existing Backlog ✓</div>
+      <div class="phase-desc">Carry-over items from prior sessions — all 3 delivered June 2026</div>
+    </div>
+  </div>
+  <div class="items">
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Goals — "Use auto amount" button</span>
+        <span class="badge e-s">S</span>
+        <span class="badge st-done">Done</span>
+        <span class="mod-tag">goals</span>
+      </div>
+      <div class="item-desc"><code>calculate_goal_balance()</code> already computes and displays <code>auto_current</code> (sum of credits to linked account since goal creation). Add a "Use" button that writes this value back to <code>current_amount</code> via <code>POST /api/financial-goals</code>.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Family Loan transfer ↔ loan auto-link</span>
+        <span class="badge e-s">S</span>
+        <span class="badge st-done">Done</span>
+        <span class="mod-tag">loans</span>
+      </div>
+      <div class="item-desc">When confirming a "Family Loan" transfer pair, auto-add the txn_ids to the matching loan record's <code>linked_receipt_txn_ids</code> or <code>linked_repayment_txn_ids</code>. Currently requires manual linking on the Goals &amp; Loans page after confirmation.</div>
+    </div>
+
+    <div class="item done-item">
+      <div class="item-top">
+        <span class="item-name">Upload modal account selector</span>
+        <span class="badge e-s">S</span>
+        <span class="badge st-done">Done</span>
+      </div>
+      <div class="item-desc">When a file is uploaded and the account cannot be determined by content-sniffing or filename pattern, show a per-file account dropdown in the upload modal rather than failing silently. Less urgent since content-sniffing covers most cases.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- EFFORT SUMMARY                                                          -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2>Effort summary</h2>
+<table class="summary-table">
+  <thead><tr><th>Phase</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total items</th><th>Approx sessions</th></tr></thead>
+  <tbody>
+    <tr><td><strong>0</strong> — Foundation</td><td>2</td><td>6</td><td>1</td><td>0</td><td>9</td><td>6–8</td></tr>
+    <tr><td><strong>1</strong> — UX</td><td>3</td><td>5</td><td>1</td><td>0</td><td>9</td><td>5–7</td></tr>
+    <tr><td><strong>2</strong> — Intelligence</td><td>1</td><td>6</td><td>0</td><td>0</td><td>7</td><td>5–6</td></tr>
+    <tr><td><strong>3</strong> — Balance Sheet</td><td>3</td><td>3</td><td>0</td><td>0</td><td>6</td><td>4–5</td></tr>
+    <tr><td><strong>4</strong> — Tax</td><td>2</td><td>3</td><td>0</td><td>0</td><td>5</td><td>3–4</td></tr>
+    <tr><td><strong>5</strong> — Ecosystem</td><td>0</td><td>2</td><td>1</td><td>2</td><td>5</td><td>6–10</td></tr>
+    <tr><td><strong>B</strong> — Backlog</td><td>3</td><td>0</td><td>0</td><td>0</td><td>3</td><td>1</td></tr>
+    <tr><td><strong>Total</strong></td><td>14</td><td>25</td><td>3</td><td>2</td><td>44</td><td>30–41</td></tr>
+  </tbody>
+</table>
+
+<p style="color:#64748b;font-size:.83rem;margin-top:12px">
+  S = hours &nbsp;|&nbsp; M = 1 session (~2–4h) &nbsp;|&nbsp; L = 2–3 sessions &nbsp;|&nbsp; XL = 4+ sessions. Phase 5 XL items (CDR, multi-user) are stretch goals.
+</p>
+
+<p style="color:#4a6070;font-size:.78rem;margin-top:24px">Last updated: 27 June 2026 &nbsp;·&nbsp; Personal Finance Analyser &nbsp;·&nbsp; Phases 0, 1 + Backlog complete — Phase 2 is next</p>
+
+</body>
+</html>

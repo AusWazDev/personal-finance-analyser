@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Planned Expenses — Personal Finance Analyser</title>
+  <style>
+    .month-group{margin-bottom:22px}
+    .month-hdr{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#2a9d8f;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #2e4a5a;display:flex;justify-content:space-between}
+    .tl-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid #1a2e3a;gap:10px;font-size:.87rem}
+    .tl-row:last-child{border-bottom:none}
+    .tl-date{width:58px;font-size:.82rem;flex-shrink:0}
+    .tl-name{flex:1;font-weight:500}
+    .tl-cat{font-size:.74rem;color:#94a3b8;background:#0f1923;padding:2px 8px;border-radius:8px;white-space:nowrap}
+    .tl-freq{font-size:.72rem;color:#5a8a80;white-space:nowrap}
+    .tl-acct{font-size:.74rem;color:#64748b;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+    .tl-amt{text-align:right;font-weight:600;white-space:nowrap;min-width:80px}
+    .soon{color:#f59e0b}
+    tr.inactive td{opacity:.4}
+    .badge{font-size:.7rem;padding:2px 7px;border-radius:8px;font-weight:600;margin-left:6px}
+    .badge-detected{background:#2A9D8F22;color:#2A9D8F;border:1px solid #2A9D8F44}
+    .badge-manual{background:#7c5fca22;color:#a78bfa;border:1px solid #7c5fca44}
+    .btn-sm{padding:4px 12px;border-radius:6px;cursor:pointer;font-size:.78rem;font-weight:600;border:1px solid;margin-left:4px}
+    .btn-edit{background:transparent;color:#2a9d8f;border-color:#2a9d8f}
+    .btn-edit:hover{background:#2a9d8f;color:white}
+    .toggle{position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;vertical-align:middle}
+    .toggle input{opacity:0;width:0;height:0}
+    .slider{position:absolute;inset:0;background:#2e4a5a;border-radius:20px;transition:.2s}
+    .slider:before{content:'';position:absolute;height:14px;width:14px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.2s}
+    input:checked+.slider{background:#2a9d8f}
+    input:checked+.slider:before{transform:translateX(16px)}
+    .note-box{background:#1a2e3a;border-radius:8px;padding:12px 16px;font-size:.82rem;color:#94a3b8;margin-top:16px;line-height:1.5}
+    .filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+    .filter-bar .lbl{font-size:.78rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+    .filter-preset{padding:5px 14px;border-radius:7px;border:1px solid #2e4a5a;background:transparent;color:rgba(255,255,255,.55);font-size:.82rem;font-weight:600;cursor:pointer}
+    .filter-preset:hover{color:white;border-color:#2a9d8f}
+    .filter-preset.active{background:rgba(42,157,143,.15);color:#2a9d8f;border-color:#2a9d8f}
+    .filter-custom{display:flex;align-items:center;gap:6px;margin-left:4px}
+    .filter-custom input{width:60px;padding:5px 9px;border-radius:7px;border:1px solid #2e4a5a;background:#0f1923;color:#e2e8f0;font-size:.82rem;text-align:center}
+    .filter-custom input:focus{outline:none;border-color:#2a9d8f}
+    .filter-custom .go-btn{padding:5px 12px;border-radius:7px;border:none;background:#2a9d8f;color:white;font-size:.82rem;font-weight:600;cursor:pointer}
+    .filter-custom .go-btn:hover{background:#21867a}
+  </style>
+</head>
+<body>
+
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>Planned Expenses</h1>
+  <p>Recurring committed expenses — rent, utilities, insurance, subscriptions, and other regular outgoings.</p>
+</div>
+
+<!-- Summary cards -->
+<div class="summary-row">
+  <div class="summary-card">
+    <div class="lbl">Monthly committed</div>
+    <div class="val">${{ "{:,.0f}".format(monthly_total) }}</div>
+    <div class="sub">${{ "{:,.0f}".format(monthly_total * 12) }} per year</div>
+  </div>
+  <div class="summary-card">
+    <div class="lbl">Active items</div>
+    <div class="val">{{ active_count }}</div>
+    <div class="sub">{{ total_count }} total{% if total_count - active_count > 0 %} ({{ total_count - active_count }} paused){% endif %}</div>
+  </div>
+  {% if next_item %}
+  <div class="summary-card">
+    <div class="lbl">Next due</div>
+    <div class="val" style="font-size:1.05rem">{{ next_item.name[:30] }}</div>
+    <div class="sub">{{ next_item.projected_date }} &mdash; ${{ "{:.2f}".format(next_item.amount) }}</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Upcoming timeline -->
+<div class="card">
+  <div class="card-title">
+    <span>Upcoming — next {{ days_ahead }} day{{ 's' if days_ahead != 1 else '' }}</span>
+    <span style="font-size:.82rem;color:#94a3b8">{{ upcoming_count }} occurrence(s)</span>
+  </div>
+
+  <div class="filter-bar">
+    <span class="lbl">Show:</span>
+    {% for preset in [7, 14, 30, 60, 90, 180] %}
+    <button class="filter-preset{% if days_ahead == preset %} active{% endif %}"
+            onclick="applyDays({{ preset }})">{{ preset }}d</button>
+    {% endfor %}
+    <div class="filter-custom">
+      <input type="number" id="custom-days" min="1" max="365" placeholder="{{ days_ahead }}"
+             onkeydown="if(event.key==='Enter')applyCustomDays()">
+      <button class="go-btn" onclick="applyCustomDays()">Go</button>
+    </div>
+  </div>
+
+  {% if grouped_upcoming %}
+    {% for group in grouped_upcoming %}
+    <div class="month-group">
+      <div class="month-hdr">
+        <span>{{ group.label }}</span>
+        <span>${{ "{:,.2f}".format(group.total) }}</span>
+      </div>
+      {% for item in group.entries %}
+      <div class="tl-row">
+        <div class="tl-date {% if item.days_away <= 7 %}soon{% endif %}">{{ item.day_label }}</div>
+        <div class="tl-name">{{ item.name }}</div>
+        <div class="tl-cat">{{ item.category }}</div>
+        <div class="tl-freq">{{ item.freq_label }}</div>
+        <div class="tl-acct" title="{{ item.account }}">{{ item.account }}</div>
+        <div class="tl-amt">${{ "{:,.2f}".format(item.amount) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty">No active commitments yet. Add items below or run an import to auto-detect recurring expenses from your transaction history.</div>
+  {% endif %}
+</div>
+
+<!-- Management table -->
+<div class="card">
+  <div class="card-title">
+    <span>All Commitments</span>
+    <button class="btn-add" onclick="openAddModal()">+ Add</button>
+  </div>
+
+  <input class="search-box" type="search" id="search-box" placeholder="Search commitments…" oninput="filterTable()">
+
+  {% if items %}
+  <table id="items-table">
+    <thead>
+      <tr>
+        <th>On</th>
+        <th>Name</th>
+        <th>Amount</th>
+        <th>Frequency</th>
+        <th>Next due</th>
+        <th>Category</th>
+        <th>Account</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in items %}
+    <tr id="row-{{ item.id }}" class="{{ '' if item.active else 'inactive' }}"
+        data-search="{{ item.name|lower }} {{ item.category|lower }} {{ item.account|lower }}">
+      <td>
+        <label class="toggle">
+          <input type="checkbox" {{ 'checked' if item.active else '' }}
+                 onchange="toggleItem('{{ item.id }}', this.checked)">
+          <span class="slider"></span>
+        </label>
+      </td>
+      <td>
+        <span style="font-weight:500">{{ item.name }}</span>
+        <span class="badge badge-{{ item.source }}">{{ item.source }}</span>
+      </td>
+      <td>${{ "{:,.2f}".format(item.amount) }}</td>
+      <td>{{ item.freq_label }}</td>
+      <td style="color:#94a3b8;font-size:.83rem">{{ item.next_due }}</td>
+      <td>{{ item.category }}</td>
+      <td style="font-size:.82rem;color:#64748b" title="{{ item.account }}">
+        {{ item.account[:22] }}{% if item.account|length > 22 %}…{% endif %}
+      </td>
+      <td style="white-space:nowrap;text-align:right">
+        <button class="btn-sm btn-edit" onclick='openEditModal({{ item|tojson }})'>Edit</button>
+        <button class="btn-sm btn-del" onclick="delItem('{{ item.id }}','{{ item.name|replace("'","\\'") }}')">Del</button>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div id="commit-pagination" style="display:flex;align-items:center;gap:12px;padding:12px 16px;font-size:.88rem"></div>
+  {% else %}
+  <div class="empty">No commitments yet. Click <strong>+ Add</strong> to add one manually, or run an import to auto-detect from transaction history.</div>
+  {% endif %}
+
+  <div class="note-box">
+    Items marked <em>detected</em> were found automatically from recurring transactions in Housing, Utilities, Insurance, Subscriptions, and Health categories.
+    Add <em>manual</em> items for mortgage payments, credit card payments, loan repayments, or anything not in your transaction history.
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h2 id="modal-title">Add Commitment</h2>
+    <input type="hidden" id="ei" value="">
+
+    <div class="fr">
+      <label>Name</label>
+      <input type="text" id="f-name" placeholder="e.g. Rent, Mortgage, AAMI Insurance">
+    </div>
+    <div class="fr2">
+      <div class="fr">
+        <label>Amount ($)</label>
+        <input type="number" id="f-amount" step="0.01" min="0" placeholder="0.00">
+      </div>
+      <div class="fr">
+        <label>Frequency</label>
+        <select id="f-freq">
+          <option value="weekly">Weekly</option>
+          <option value="fortnightly">Fortnightly</option>
+          <option value="monthly" selected>Monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="annual">Annual</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr2">
+      <div class="fr">
+        <label>Category</label>
+        <select id="f-cat">
+          {% for group, cats in cat_groups %}
+          <optgroup label="{{ group }}">
+            {% for cat in cats %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+          </optgroup>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="fr">
+        <label>Next due date</label>
+        <input type="date" id="f-due">
+      </div>
+    </div>
+    <div class="fr">
+      <label>Account (optional)</label>
+      <input type="text" id="f-acct" placeholder="e.g. ANZ Personal, 28 Degrees">
+    </div>
+    <div class="fr">
+      <label>Notes (optional)</label>
+      <textarea id="f-notes" placeholder="Any notes…"></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveItem()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function toast(msg, ok) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = ok === false ? '#c95f43' : '#2a9d8f';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+var _COMMIT_PAGE = 50;
+var _commitPage  = 1;
+
+function filterTable() {
+  _commitPage = 1;
+  _renderCommitPage();
+}
+
+function _renderCommitPage() {
+  const q = document.getElementById('search-box').value.toLowerCase();
+  const allRows = Array.from(document.querySelectorAll('#items-table tbody tr'));
+  const matched = allRows.filter(tr => !q || (tr.dataset.search || '').includes(q));
+  const total   = matched.length;
+  const totalPages = Math.max(1, Math.ceil(total / _COMMIT_PAGE));
+  _commitPage = Math.min(_commitPage, totalPages);
+  const start = (_commitPage - 1) * _COMMIT_PAGE;
+
+  allRows.forEach(tr => tr.style.display = 'none');
+  matched.slice(start, start + _COMMIT_PAGE).forEach(tr => tr.style.display = '');
+
+  const pag = document.getElementById('commit-pagination');
+  if (pag) {
+    pag.innerHTML = totalPages > 1
+      ? '<button onclick="_goCommitPage(' + (_commitPage-1) + ')" ' + (_commitPage<=1?'disabled':'') +
+          ' style="padding:4px 12px;border:1px solid #2e4a5a;border-radius:6px;cursor:pointer;background:transparent;color:#e2e8f0">&#8592; Prev</button>' +
+        '<span style="color:#94a3b8;font-size:.88rem">Page ' + _commitPage + ' of ' + totalPages + ' (' + total + ' items)</span>' +
+        '<button onclick="_goCommitPage(' + (_commitPage+1) + ')" ' + (_commitPage>=totalPages?'disabled':'') +
+          ' style="padding:4px 12px;border:1px solid #2e4a5a;border-radius:6px;cursor:pointer;background:transparent;color:#e2e8f0">Next &#8594;</button>'
+      : '';
+  }
+}
+
+function _goCommitPage(p) { _commitPage = p; _renderCommitPage(); }
+
+document.addEventListener('DOMContentLoaded', _renderCommitPage);
+
+function openAddModal() {
+  document.getElementById('modal-title').textContent = 'Add Commitment';
+  document.getElementById('ei').value = '';
+  ['f-name','f-amount','f-due','f-acct','f-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-freq').value = 'monthly';
+  document.getElementById('f-cat').value = 'Housing';
+  document.getElementById('modal-bg').classList.add('open');
+  document.getElementById('f-name').focus();
+}
+
+function openEditModal(item) {
+  document.getElementById('modal-title').textContent = 'Edit Commitment';
+  document.getElementById('ei').value = item.id;
+  document.getElementById('f-name').value = item.name || '';
+  document.getElementById('f-amount').value = item.amount || '';
+  document.getElementById('f-freq').value = item.frequency || 'monthly';
+  document.getElementById('f-cat').value = item.category || 'Housing';
+  document.getElementById('f-due').value = item.next_due || '';
+  document.getElementById('f-acct').value = item.account || '';
+  document.getElementById('f-notes').value = item.notes || '';
+  document.getElementById('modal-bg').classList.add('open');
+  document.getElementById('f-name').focus();
+}
+
+function closeModal() { document.getElementById('modal-bg').classList.remove('open'); }
+
+function saveItem() {
+  const id  = document.getElementById('ei').value;
+  const name = document.getElementById('f-name').value.trim();
+  const amt  = parseFloat(document.getElementById('f-amount').value);
+  if (!name)           { toast('Name is required', false); return; }
+  if (isNaN(amt)||amt<0) { toast('Enter a valid amount', false); return; }
+  const payload = {
+    id: id || null,
+    name, amount: amt,
+    frequency: document.getElementById('f-freq').value,
+    category:  document.getElementById('f-cat').value,
+    next_due:  document.getElementById('f-due').value || null,
+    account:   document.getElementById('f-acct').value.trim(),
+    notes:     document.getElementById('f-notes').value.trim(),
+    source:    id ? undefined : 'manual',
+    active:    true,
+  };
+  fetch('/api/commitments', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(r=>r.json())
+    .then(d=>{ if(d.ok){toast('Saved');closeModal();setTimeout(()=>location.reload(),500);}else toast(d.error||'Error',false); })
+    .catch(()=>toast('Network error',false));
+}
+
+function toggleItem(id, active) {
+  fetch('/api/commitments/toggle', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,active})})
+    .then(r=>r.json())
+    .then(d=>{ if(d.ok){const row=document.getElementById('row-'+id);if(row)row.classList.toggle('inactive',!active);toast(active?'Enabled':'Paused');}else toast(d.error||'Error',false); })
+    .catch(()=>toast('Network error',false));
+}
+
+function delItem(id, name) {
+  if (!confirm('Delete "'+name+'"?')) return;
+  fetch('/api/commitments',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})})
+    .then(r=>r.json())
+    .then(d=>{ if(d.ok){toast('Deleted');setTimeout(()=>location.reload(),500);}else toast(d.error||'Error',false); })
+    .catch(()=>toast('Network error',false));
+}
+
+document.getElementById('modal-bg').addEventListener('click', e => {
+  if (e.target===document.getElementById('modal-bg')) closeModal();
+});
+
+function applyDays(n) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('days', n);
+  window.location.href = url.toString();
+}
+function applyCustomDays() {
+  const n = parseInt(document.getElementById('custom-days').value, 10);
+  if (n > 0 && n <= 365) applyDays(n);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Encryption — Personal Finance Analyser</title>
+  <link rel="stylesheet" href="/static/base.css">
+  <style>
+    .page-header{margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+    .page-header h1{font-size:1.6rem;color:#2A9D8F;margin:0}
+    .page-header p{color:#94a3b8;margin-top:4px;font-size:.9rem}
+    .card{background:#1d3540;border-radius:12px;padding:24px;margin-bottom:20px}
+    .card-title{font-size:1rem;font-weight:700;color:#e2e8f0;margin:0 0 16px}
+    .status-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #1a2e3a}
+    .status-row:last-child{border-bottom:none}
+    .status-label{color:#94a3b8;font-size:.85rem;min-width:200px}
+    .status-val{color:#e2e8f0;font-size:.88rem;font-weight:600}
+    .pill{display:inline-block;padding:2px 10px;border-radius:10px;font-size:.75rem;font-weight:700}
+    .pill-ok{background:#22a86e22;color:#22a86e;border:1px solid #22a86e44}
+    .pill-warn{background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44}
+    .pill-err{background:#E6394622;color:#E63946;border:1px solid #E6394644}
+    .btn-primary{padding:9px 22px;background:#2A9D8F;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.9rem}
+    .btn-primary:hover{background:#21867a}
+    .btn-outline{padding:8px 18px;background:transparent;color:#2A9D8F;border:1px solid #2A9D8F;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:600}
+    .btn-outline:hover{background:#2A9D8F22}
+    .btn-danger{padding:8px 18px;background:transparent;color:#E63946;border:1px solid #E63946;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:600}
+    .btn-danger:hover{background:#E6394622}
+    .form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+    .form-group label{font-size:.8rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+    .form-group input{padding:8px 10px;border-radius:6px;border:1px solid #2e4a5a;background:#0f1923;color:#e2e8f0;font-size:.9rem;max-width:360px}
+    .form-group input:focus{outline:none;border-color:#2A9D8F}
+    .hint{font-size:.76rem;color:#64748b;margin-top:3px}
+    .action-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+    .install-box{background:#0f1923;border-radius:8px;padding:14px 18px;margin:12px 0;font-family:monospace;font-size:.85rem;color:#4cc9f0;border:1px solid #2e4a5a}
+    .toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:.9rem;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999;color:white}
+    .toast.show{opacity:1}
+    .toast.ok{background:#2A9D8F}
+    .toast.err{background:#E63946}
+    .section-note{font-size:.85rem;color:#64748b;line-height:1.6;margin-bottom:14px}
+  </style>
+</head>
+<body>
+
+{% include 'partials/_nav.html' %}
+
+<div class="page-header">
+  <div>
+    <h1>Database Encryption</h1>
+    <p>Protect <code>Data/finance.db</code> with SQLCipher transparent encryption.</p>
+  </div>
+</div>
+
+<!-- Status card -->
+<div class="card">
+  <p class="card-title">Current status</p>
+
+  <div class="status-row">
+    <span class="status-label">Encryption active</span>
+    <span class="status-val">
+      {% if status.encryption_active %}
+      <span class="pill pill-ok">&#10003; Active</span>
+      {% else %}
+      <span class="pill pill-warn">&#8855; Inactive</span>
+      {% endif %}
+    </span>
+  </div>
+
+  <div class="status-row">
+    <span class="status-label">SQLCipher driver</span>
+    <span class="status-val">
+      {% if status.sqlcipher_available %}
+      <span class="pill pill-ok">&#10003; Installed</span>
+      {% else %}
+      <span class="pill pill-err">&#10007; Not installed</span>
+      {% endif %}
+      <span style="color:#64748b;font-size:.8rem;margin-left:6px">{{ status.driver }}</span>
+    </span>
+  </div>
+
+  <div class="status-row">
+    <span class="status-label">Passphrase</span>
+    <span class="status-val">
+      {% if status.passphrase_set %}
+      <span class="pill pill-ok">&#10003; Set</span>
+      <span style="color:#64748b;font-size:.8rem;margin-left:6px">stored in {{ status.passphrase_source }}</span>
+      {% else %}
+      <span class="pill pill-warn">Not set</span>
+      {% endif %}
+    </span>
+  </div>
+
+  <div class="status-row">
+    <span class="status-label">Keyring (OS credential store)</span>
+    <span class="status-val">
+      {% if status.keyring_available %}
+      <span class="pill pill-ok">&#10003; Available</span>
+      {% else %}
+      <span class="pill pill-warn">Not installed</span>
+      {% endif %}
+    </span>
+  </div>
+</div>
+
+{% if not status.sqlcipher_available %}
+<!-- Install SQLCipher -->
+<div class="card">
+  <p class="card-title">Install SQLCipher</p>
+  <p class="section-note">
+    SQLCipher provides transparent AES-256 block-level encryption. Install the Python bindings with:
+  </p>
+  <div class="install-box">pip install sqlcipher3-wheels</div>
+  <p class="section-note" style="margin-top:10px">
+    Restart the server after installation, then return here to set a passphrase and migrate the database.
+  </p>
+  {% if not status.keyring_available %}
+  <p class="section-note" style="margin-top:4px">
+    For secure passphrase storage, also run: <span style="font-family:monospace;color:#4cc9f0">pip install keyring</span>
+  </p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if status.sqlcipher_available %}
+<!-- Set / change passphrase -->
+<div class="card">
+  <p class="card-title">{% if status.passphrase_set %}Change passphrase{% else %}Set passphrase{% endif %}</p>
+  {% if not status.keyring_available %}
+  <p class="section-note" style="color:#f59e0b">
+    &#9888; The <code>keyring</code> package is not installed. The passphrase will be saved to
+    <code>Data/.enc_key</code> in plain text. Run <code>pip install keyring</code> for secure storage.
+  </p>
+  {% endif %}
+  <div class="form-group">
+    <label>New passphrase</label>
+    <input type="password" id="phrase1" placeholder="Enter passphrase" autocomplete="new-password">
+  </div>
+  <div class="form-group">
+    <label>Confirm passphrase</label>
+    <input type="password" id="phrase2" placeholder="Confirm passphrase" autocomplete="new-password">
+    <span class="hint">You will need this passphrase to open the database. There is no recovery option if it is lost.</span>
+  </div>
+  <div class="action-row">
+    <button class="btn-primary" onclick="setPassphrase()">Save passphrase</button>
+  </div>
+</div>
+
+<!-- Migrate / decrypt -->
+<div class="card">
+  <p class="card-title">Database operations</p>
+  {% if not status.passphrase_set %}
+  <p class="section-note">Set a passphrase above before encrypting the database.</p>
+  {% else %}
+  <p class="section-note">
+    <strong>Encrypt database</strong> — converts the existing plain SQLite database to SQLCipher format.
+    The server must be restarted afterwards. Back up <code>Data/finance.db</code> first.
+  </p>
+  <div class="action-row" style="margin-bottom:20px">
+    <button class="btn-primary" onclick="migrateDb()">Encrypt database</button>
+  </div>
+  <p class="section-note">
+    <strong>Decrypt database</strong> — converts back to plain SQLite and removes the passphrase.
+    Use this before upgrading Python or SQLCipher.
+  </p>
+  <div class="action-row" style="margin-bottom:20px">
+    <button class="btn-danger" onclick="decryptDb()">Decrypt &amp; remove passphrase</button>
+  </div>
+  {% endif %}
+
+  {% if status.passphrase_set %}
+  <p class="section-note" style="margin-top:8px">
+    <strong>Remove passphrase only</strong> — clears the stored passphrase without touching the database file.
+    Only do this if the database is already plain SQLite.
+  </p>
+  <div class="action-row">
+    <button class="btn-outline" onclick="deletePassphrase()">Remove stored passphrase</button>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<div id="toast" class="toast"></div>
+
+<script>
+function setPassphrase() {
+  var p1 = document.getElementById('phrase1').value;
+  var p2 = document.getElementById('phrase2').value;
+  if (!p1) { showToast('Enter a passphrase.', 'err'); return; }
+  if (p1 !== p2) { showToast('Passphrases do not match.', 'err'); return; }
+  fetch('/api/encryption/passphrase', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({passphrase: p1})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) {
+      showToast('Passphrase saved to ' + d.saved_to + '.', 'ok');
+      document.getElementById('phrase1').value = '';
+      document.getElementById('phrase2').value = '';
+      setTimeout(function() { location.reload(); }, 1000);
+    } else showToast(d.error || 'Save failed', 'err');
+  }).catch(function(e) { showToast('Error: ' + e, 'err'); });
+}
+
+function deletePassphrase() {
+  if (!confirm('Remove the stored passphrase? Only do this if the database is already plain SQLite.')) return;
+  fetch('/api/encryption/passphrase', { method: 'DELETE' })
+    .then(function(r) { return r.json(); }).then(function(d) {
+      if (d.ok) { showToast('Passphrase removed.', 'ok'); setTimeout(function() { location.reload(); }, 800); }
+      else showToast(d.error || 'Failed', 'err');
+    }).catch(function(e) { showToast('Error: ' + e, 'err'); });
+}
+
+function migrateDb() {
+  if (!confirm('Encrypt the database now?\n\nMake sure you have a backup of Data/finance.db first.\nThe server must be restarted after this operation.')) return;
+  fetch('/api/encryption/migrate', { method: 'POST' })
+    .then(function(r) { return r.json(); }).then(function(d) {
+      if (d.ok) { showToast('Database encrypted successfully. Restart the server.', 'ok'); }
+      else showToast(d.error || 'Encryption failed', 'err');
+    }).catch(function(e) { showToast('Error: ' + e, 'err'); });
+}
+
+function decryptDb() {
+  if (!confirm('Decrypt the database and remove the passphrase?\nThe server must be restarted after this operation.')) return;
+  fetch('/api/encryption/decrypt', { method: 'POST' })
+    .then(function(r) { return r.json(); }).then(function(d) {
+      if (d.ok) { showToast('Database decrypted. Passphrase removed. Restart the server.', 'ok'); setTimeout(function() { location.reload(); }, 1200); }
+      else showToast(d.error || 'Decryption failed', 'err');
+    }).catch(function(e) { showToast('Error: ' + e, 'err'); });
+}
+
+function showToast(msg, cls) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + cls + ' show';
+  setTimeout(function() { t.className = 'toast'; }, 4000);
+}
+</script>
+</body>
+</html>

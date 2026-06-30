@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Accounts — Personal Finance Analyser</title>
+  <link rel="stylesheet" href="/static/base.css">
+  <style>
+    .page-header{margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+    .page-header h1{font-size:1.6rem;color:#2A9D8F;margin:0}
+    .page-header p{color:#94a3b8;margin-top:4px;font-size:.9rem}
+    .btn-primary{padding:9px 22px;background:#2A9D8F;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.9rem}
+    .btn-primary:hover{background:#21867a}
+    .card{background:#1d3540;border-radius:12px;padding:24px;margin-bottom:20px}
+    .search-box{width:100%;max-width:360px;padding:9px 14px;border-radius:8px;border:1px solid #2e4a5a;background:#0f1923;color:#e2e8f0;font-size:.9rem;margin-bottom:18px}
+    .search-box:focus{outline:none;border-color:#2A9D8F}
+    table{width:100%;border-collapse:collapse}
+    th{text-align:left;padding:10px 14px;color:#94a3b8;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #2e4a5a;white-space:nowrap}
+    td{padding:9px 14px;border-bottom:1px solid #1a2e3a;font-size:.87rem;vertical-align:middle}
+    tr:hover td{background:rgba(42,157,143,.06)}
+    .system-name{font-family:monospace;color:#94a3b8;font-size:.82rem}
+    .friendly-name{color:#e2e8f0;font-weight:600}
+    .no-value{color:#4a6070;font-style:italic}
+    .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:600}
+    .badge-active{background:#2A9D8F22;color:#2A9D8F;border:1px solid #2A9D8F44}
+    .badge-inactive{background:#44444422;color:#888;border:1px solid #44444444}
+    .btn-edit{padding:5px 14px;background:transparent;color:#2A9D8F;border:1px solid #2A9D8F;border-radius:6px;cursor:pointer;font-size:.8rem;font-weight:600}
+    .btn-edit:hover{background:#2A9D8F;color:white}
+    .count{color:#94a3b8;font-size:.82rem;margin-bottom:12px}
+    /* Modal */
+    .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;align-items:center;justify-content:center}
+    .modal-bg.open{display:flex}
+    .modal{background:#1d3540;border-radius:14px;padding:32px;width:540px;max-width:96vw;max-height:90vh;overflow-y:auto}
+    .modal h3{margin:0 0 20px;color:#2A9D8F;font-size:1.1rem}
+    .field-row{margin-bottom:14px}
+    .field-row label{display:block;font-size:.8rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+    .field-row input,.field-row textarea,.field-row select{width:100%;padding:9px 12px;border-radius:8px;border:1px solid #2e4a5a;background:#0f1923;color:#e2e8f0;font-size:.9rem}
+    .field-row input:focus,.field-row textarea:focus,.field-row select:focus{outline:none;border-color:#2A9D8F}
+    .field-row textarea{resize:vertical;min-height:72px}
+    .field-readonly{padding:9px 12px;background:#0f1923;border-radius:8px;border:1px solid #2e4a5a;color:#94a3b8;font-family:monospace;font-size:.87rem}
+    .field-hint{font-size:.75rem;color:#4a6070;margin-top:4px}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px}
+    .btn-cancel{padding:8px 20px;border:1px solid #2e4a5a;border-radius:8px;background:transparent;color:#94a3b8;cursor:pointer;font-size:.9rem}
+    .btn-cancel:hover{border-color:#94a3b8;color:#e2e8f0}
+    .btn-save{padding:8px 22px;background:#2A9D8F;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:600}
+    .btn-save:hover{background:#21867a}
+    .toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:.9rem;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999;color:white}
+    .toast.show{opacity:1}
+    .toast.ok{background:#2A9D8F}
+    .toast.err{background:#E63946}
+  </style>
+</head>
+<body>
+
+{% include 'partials/_nav.html' %}
+
+<div class="page-header">
+  <div>
+    <h1>Accounts</h1>
+    <p>Manage friendly names, BSB, account numbers and identifiers for each account.</p>
+  </div>
+  <button class="btn-primary" onclick="openAdd()">+ Add Account</button>
+</div>
+
+<div class="card">
+  <input class="search-box" type="text" id="search" placeholder="Filter accounts…" oninput="filterTable()">
+  <div class="count" id="count"></div>
+  <table id="acct-table">
+    <thead>
+      <tr>
+        <th>System Name</th>
+        <th>Friendly Name</th>
+        <th>Institution</th>
+        <th>BSB</th>
+        <th>Account / Identifier</th>
+        <th>Txns</th>
+        <th>Range</th>
+        <th title="Counts toward emergency fund balance">Savings</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for a in accounts %}
+    <tr data-name="{{ a.account_name | lower }}">
+      <td><span class="system-name">{{ a.account_name }}</span></td>
+      <td>{% if a.friendly_name %}<span class="friendly-name">{{ a.friendly_name }}</span>{% else %}<span class="no-value">—</span>{% endif %}</td>
+      <td>{{ a.institution or '—' }}</td>
+      <td>{{ a.bsb[:3] + '-' + a.bsb[3:] if a.bsb and a.bsb|length == 6 else (a.bsb or '—') }}</td>
+      <td>
+        {% if a.account_number %}
+          {{ a.account_number }}
+        {% elif a.identifier %}
+          <span style="color:#94a3b8;font-size:.78rem">{{ a.identifier_type or 'ID' }}</span> {{ a.identifier }}
+        {% else %}
+          <span class="no-value">—</span>
+        {% endif %}
+      </td>
+      <td style="color:#94a3b8">{{ a.txn_count or 0 }}</td>
+      <td style="color:#94a3b8;font-size:.8rem;white-space:nowrap">
+        {% if a.first_date %}{{ a.first_date[:7] }} → {{ a.last_date[:7] }}{% else %}—{% endif %}
+      </td>
+      <td style="text-align:center">
+        {% if a.is_savings %}
+          <span title="Counts toward emergency fund" style="color:#2A9D8F;font-size:1rem">&#10003;</span>
+        {% else %}
+          <span style="color:#2e4a5a">—</span>
+        {% endif %}
+      </td>
+      <td>
+        <button class="btn-edit" onclick='openEdit({{ a | tojson }})'>Edit</button>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Edit modal -->
+<div id="edit-modal" class="modal-bg" onclick="if(event.target===this)closeEdit()">
+  <div class="modal">
+    <h3>Edit Account</h3>
+    <div class="field-row">
+      <label>System Name <span style="color:#4a6070;font-weight:400;text-transform:none">(matches transactions — cannot change)</span></label>
+      <div class="field-readonly" id="edit-system-name"></div>
+    </div>
+    <div class="field-row">
+      <label>Friendly Name</label>
+      <input type="text" id="edit-friendly-name" placeholder="e.g. Main Cheque Account">
+    </div>
+    <div class="field-row">
+      <label>Statement Name <span style="color:#4a6070;font-weight:400;text-transform:none">(as printed on statements)</span></label>
+      <input type="text" id="edit-statement-name" placeholder="e.g. ANZ TRANSACTION ACCOUNT">
+    </div>
+    <div class="field-row">
+      <label>Institution</label>
+      <input type="text" id="edit-institution" placeholder="e.g. ANZ, PayPal, Latitude">
+    </div>
+    <div class="two-col">
+      <div class="field-row">
+        <label>BSB</label>
+        <input type="text" id="edit-bsb" placeholder="012012" maxlength="6">
+        <div class="field-hint">6 digits, no hyphen</div>
+      </div>
+      <div class="field-row">
+        <label>Account Number</label>
+        <input type="text" id="edit-account-number" placeholder="595488286">
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="field-row">
+        <label>Identifier</label>
+        <input type="text" id="edit-identifier" placeholder="e.g. card number, email">
+      </div>
+      <div class="field-row">
+        <label>Identifier Type</label>
+        <input type="text" id="edit-identifier-type" placeholder="e.g. card, email, id">
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Notes</label>
+      <textarea id="edit-notes" placeholder="Any additional notes…"></textarea>
+    </div>
+    <div class="field-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0f1923;border-radius:8px;border:1px solid #2e4a5a">
+      <input type="checkbox" id="edit-is-savings" style="width:16px;height:16px;accent-color:#2A9D8F;cursor:pointer">
+      <div>
+        <label for="edit-is-savings" style="margin:0;font-size:.88rem;color:#e2e8f0;font-weight:600;text-transform:none;letter-spacing:0;cursor:pointer">Count as savings</label>
+        <div class="field-hint" style="margin-top:2px">Balance from this account contributes to the Emergency Fund runway on the dashboard.</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEdit()">Cancel</button>
+      <button class="btn-save" onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add modal -->
+<div id="add-modal" class="modal-bg" onclick="if(event.target===this)closeAdd()">
+  <div class="modal">
+    <h3>Add Account</h3>
+    <div class="field-row">
+      <label>System Name <span style="color:#4a6070;font-weight:400;text-transform:none">(must match name in imported files)</span></label>
+      <input type="text" id="add-system-name" placeholder="e.g. ANZ Business">
+    </div>
+    <div class="field-row">
+      <label>Friendly Name</label>
+      <input type="text" id="add-friendly-name" placeholder="e.g. Business Cheque">
+    </div>
+    <div class="field-row">
+      <label>Statement Name</label>
+      <input type="text" id="add-statement-name" placeholder="e.g. ANZ TRANSACTION ACCOUNT">
+    </div>
+    <div class="field-row">
+      <label>Institution</label>
+      <input type="text" id="add-institution" placeholder="e.g. ANZ">
+    </div>
+    <div class="two-col">
+      <div class="field-row">
+        <label>BSB</label>
+        <input type="text" id="add-bsb" placeholder="012012" maxlength="6">
+      </div>
+      <div class="field-row">
+        <label>Account Number</label>
+        <input type="text" id="add-account-number">
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="field-row">
+        <label>Identifier</label>
+        <input type="text" id="add-identifier">
+      </div>
+      <div class="field-row">
+        <label>Identifier Type</label>
+        <input type="text" id="add-identifier-type" placeholder="card, email, id…">
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Notes</label>
+      <textarea id="add-notes"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeAdd()">Cancel</button>
+      <button class="btn-save" onclick="saveAdd()">Add Account</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+var _editName = '';
+
+function filterTable() {
+  var q = document.getElementById('search').value.toLowerCase();
+  var rows = document.querySelectorAll('#acct-table tbody tr');
+  var shown = 0;
+  rows.forEach(function(r) {
+    var match = !q || r.dataset.name.includes(q) || r.textContent.toLowerCase().includes(q);
+    r.style.display = match ? '' : 'none';
+    if (match) shown++;
+  });
+  document.getElementById('count').textContent = shown + ' account' + (shown !== 1 ? 's' : '');
+}
+
+function openEdit(acct) {
+  _editName = acct.account_name;
+  document.getElementById('edit-system-name').textContent = acct.account_name;
+  document.getElementById('edit-friendly-name').value    = acct.friendly_name   || '';
+  document.getElementById('edit-statement-name').value   = acct.statement_name  || '';
+  document.getElementById('edit-institution').value      = acct.institution      || '';
+  document.getElementById('edit-bsb').value              = acct.bsb             || '';
+  document.getElementById('edit-account-number').value  = acct.account_number  || '';
+  document.getElementById('edit-identifier').value       = acct.identifier      || '';
+  document.getElementById('edit-identifier-type').value = acct.identifier_type || '';
+  document.getElementById('edit-notes').value            = acct.notes           || '';
+  document.getElementById('edit-is-savings').checked    = !!acct.is_savings;
+  document.getElementById('edit-modal').classList.add('open');
+}
+function closeEdit() { document.getElementById('edit-modal').classList.remove('open'); }
+
+function saveEdit() {
+  var body = {
+    friendly_name:   document.getElementById('edit-friendly-name').value.trim(),
+    statement_name:  document.getElementById('edit-statement-name').value.trim(),
+    institution:     document.getElementById('edit-institution').value.trim(),
+    bsb:             document.getElementById('edit-bsb').value.replace(/\D/g,''),
+    account_number:  document.getElementById('edit-account-number').value.trim(),
+    identifier:      document.getElementById('edit-identifier').value.trim(),
+    identifier_type: document.getElementById('edit-identifier-type').value.trim(),
+    notes:           document.getElementById('edit-notes').value.trim(),
+    is_savings:      document.getElementById('edit-is-savings').checked ? 1 : 0,
+  };
+  fetch('/api/accounts/' + encodeURIComponent(_editName), {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  }).then(function(r){ return r.json(); }).then(function(d) {
+    if (d.ok) { toast('Saved', 'ok'); closeEdit(); setTimeout(function(){ location.reload(); }, 600); }
+    else       { toast('Error: ' + (d.error || 'unknown'), 'err'); }
+  }).catch(function(e){ toast('Network error', 'err'); });
+}
+
+function openAdd() {
+  ['add-system-name','add-friendly-name','add-statement-name','add-institution',
+   'add-bsb','add-account-number','add-identifier','add-identifier-type','add-notes']
+    .forEach(function(id){ document.getElementById(id).value = ''; });
+  document.getElementById('add-modal').classList.add('open');
+}
+function closeAdd() { document.getElementById('add-modal').classList.remove('open'); }
+
+function saveAdd() {
+  var name = document.getElementById('add-system-name').value.trim();
+  if (!name) { toast('System name is required', 'err'); return; }
+  var body = {
+    account_name:    name,
+    friendly_name:   document.getElementById('add-friendly-name').value.trim(),
+    statement_name:  document.getElementById('add-statement-name').value.trim(),
+    institution:     document.getElementById('add-institution').value.trim(),
+    bsb:             document.getElementById('add-bsb').value.replace(/\D/g,''),
+    account_number:  document.getElementById('add-account-number').value.trim(),
+    identifier:      document.getElementById('add-identifier').value.trim(),
+    identifier_type: document.getElementById('add-identifier-type').value.trim(),
+    notes:           document.getElementById('add-notes').value.trim(),
+  };
+  fetch('/api/accounts', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  }).then(function(r){ return r.json(); }).then(function(d) {
+    if (d.ok) { toast('Account added', 'ok'); closeAdd(); setTimeout(function(){ location.reload(); }, 600); }
+    else       { toast('Error: ' + (d.error || 'unknown'), 'err'); }
+  }).catch(function(){ toast('Network error', 'err'); });
+}
+
+function toast(msg, type) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + type + ' show';
+  setTimeout(function(){ el.classList.remove('show'); }, 2800);
+}
+
+// Initialise count
+filterTable();
+</script>
+</body>
+</html>

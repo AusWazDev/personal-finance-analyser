@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Welcome — Personal Finance Analyser</title>
+  <style>
+    body{display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;min-height:100vh}
+    .card{background:#1d3540;border-radius:16px;padding:40px 44px;width:min(600px,100%);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+    h1{font-size:1.5rem;color:#2A9D8F;margin-bottom:4px}
+    .tagline{font-size:.88rem;color:#64748b;margin-bottom:32px}
+
+    /* Step indicator */
+    .steps{display:flex;gap:0;margin-bottom:36px;border-radius:10px;overflow:hidden;background:#0f1923}
+    .step-tab{flex:1;padding:10px 6px;text-align:center;font-size:.78rem;font-weight:700;color:#64748b;cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;background:#152530}
+    .step-tab.active{color:#2A9D8F;border-bottom-color:#2A9D8F;background:#1d3540}
+    .step-tab.done{color:#4a7a8a}
+
+    /* Step content panels */
+    .step-panel{display:none}
+    .step-panel.active{display:block}
+
+    /* Form elements */
+    .field{margin-bottom:22px}
+    .field label{display:block;font-size:.82rem;font-weight:700;color:#94a3b8;margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em}
+    .field input[type=text]{width:100%;background:#0f1923;border:1px solid #2e4a5a;border-radius:8px;padding:11px 14px;color:#e2e8f0;font-size:.95rem;outline:none;transition:border-color .2s}
+    .field input[type=text]:focus{border-color:#2A9D8F}
+
+    /* Code block */
+    .code-block{background:#0f1923;border:1px solid #2e4a5a;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:.82rem;color:#2A9D8F;word-break:break-all;position:relative;margin-bottom:12px}
+    .copy-btn{position:absolute;top:8px;right:10px;background:#1d3540;border:1px solid #2e4a5a;border-radius:5px;padding:3px 9px;font-size:.72rem;color:#94a3b8;cursor:pointer}
+    .copy-btn:hover{color:#e2e8f0;border-color:#4a7a8a}
+
+    /* API test */
+    .api-test-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+    .api-test-btn{background:#264653;border:none;border-radius:7px;padding:8px 18px;color:#e2e8f0;font-size:.85rem;font-weight:600;cursor:pointer;transition:background .2s}
+    .api-test-btn:hover{background:#2e5566}
+    .api-status{font-size:.83rem;padding:5px 12px;border-radius:5px;display:none}
+    .api-status.ok{background:#14532d;color:#86efac;display:inline-block}
+    .api-status.fail{background:#450a0a;color:#fca5a5;display:inline-block}
+
+    /* Banks table */
+    .banks-table{width:100%;border-collapse:collapse;font-size:.83rem;margin-bottom:8px}
+    .banks-table th{background:#152530;padding:8px 12px;text-align:left;color:#64748b;font-weight:700;font-size:.74rem;text-transform:uppercase;letter-spacing:.05em}
+    .banks-table td{padding:8px 12px;border-bottom:1px solid #1a2c38;color:#94a3b8;vertical-align:top}
+    .banks-table td:first-child{color:#e2e8f0;font-weight:600}
+    .banks-table tr:last-child td{border-bottom:none}
+    .badge-format{background:#1a2c38;border-radius:4px;padding:2px 7px;font-size:.72rem;color:#4a7a8a;font-family:monospace}
+
+    /* Module list */
+    .section-label{font-size:.72rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px}
+    .module-list{background:#152530;border-radius:10px;padding:4px 0;margin-bottom:24px}
+    .module-row{display:flex;align-items:center;justify-content:space-between;padding:11px 18px;border-bottom:1px solid #1a2c38}
+    .module-row:last-child{border-bottom:none}
+    .module-info{display:flex;flex-direction:column;gap:2px}
+    .module-name{color:#e2e8f0;font-weight:600;font-size:.88rem}
+    .module-desc{color:#64748b;font-size:.76rem}
+    .toggle-wrap{position:relative;flex-shrink:0}
+    .toggle-input{opacity:0;width:0;height:0;position:absolute}
+    .toggle-slider{display:block;width:44px;height:24px;background:#2e4a5a;border-radius:12px;cursor:pointer;transition:background .2s;position:relative}
+    .toggle-slider::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .2s}
+    .toggle-input:checked + .toggle-slider{background:#2A9D8F}
+    .toggle-input:checked + .toggle-slider::after{transform:translateX(20px)}
+
+    /* Buttons */
+    .btn-row{display:flex;gap:12px;margin-top:8px}
+    .btn-primary{flex:1;padding:13px;background:#2A9D8F;color:white;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:background .2s}
+    .btn-primary:hover{background:#21867a}
+    .btn-secondary{padding:13px 20px;background:#1d3540;border:1px solid #2e4a5a;color:#94a3b8;border-radius:10px;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .2s}
+    .btn-secondary:hover{border-color:#4a7a8a;color:#e2e8f0}
+    .hint{font-size:.77rem;color:#64748b;margin-top:12px;text-align:center}
+    .info-box{background:#152530;border-radius:8px;padding:14px 16px;font-size:.82rem;color:#64748b;margin-bottom:20px;line-height:1.6}
+    .info-box strong{color:#94a3b8}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Personal Finance Analyser</h1>
+    <p class="tagline">Let's get you set up — takes about 2 minutes.</p>
+
+    <!-- Step indicator -->
+    <div class="steps">
+      <div class="step-tab active" id="tab-1" onclick="goStep(1)">1. About You</div>
+      <div class="step-tab" id="tab-2" onclick="goStep(2)">2. Import Guide</div>
+      <div class="step-tab" id="tab-3" onclick="goStep(3)">3. Features</div>
+    </div>
+
+    <form method="POST" action="/setup" id="setup-form">
+
+      <!-- ── Step 1: About You ─────────────────────────────────── -->
+      <div class="step-panel active" id="panel-1">
+        <div class="field">
+          <label>Your name</label>
+          <input type="text" name="user_name" id="user_name" placeholder="e.g. Alex" autocomplete="given-name">
+        </div>
+
+        <div class="field">
+          <label>AI Categorisation (optional)</label>
+          <div class="info-box">
+            PFA uses <strong>Claude AI</strong> to automatically categorise transactions.
+            To enable it, set your Anthropic API key as a Windows environment variable — it's never stored in a file.
+            <br><br>
+            Copy and run this in PowerShell (replace <code style="color:#2A9D8F">sk-ant-...</code> with your real key):
+          </div>
+          <div class="code-block" id="ps-cmd">[Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY", "sk-ant-...", "User")<button class="copy-btn" type="button" onclick="copyCmd()">Copy</button></div>
+          <div class="info-box" style="margin-bottom:16px">
+            After setting it, <strong>restart PFA</strong> for the new variable to take effect.
+            Don't have a key? <a href="https://console.anthropic.com/" target="_blank" style="color:#2A9D8F">Sign up at console.anthropic.com</a>
+            — free tier available. Or skip this; PFA still works using rule-based categorisation.
+          </div>
+          <div class="api-test-row">
+            <button type="button" class="api-test-btn" onclick="testApiKey()">Test connection</button>
+            <span class="api-status" id="api-status"></span>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="btn-primary" onclick="goStep(2)">Next →</button>
+        </div>
+      </div>
+
+      <!-- ── Step 2: Import Guide ──────────────────────────────── -->
+      <div class="step-panel" id="panel-2">
+        <div class="info-box" style="margin-bottom:20px">
+          PFA imports transactions from files you download from your bank's website.
+          Upload them via the <strong>⬆ Import</strong> button once you're set up.
+        </div>
+
+        <div class="section-label">Supported banks &amp; file types</div>
+        <table class="banks-table">
+          <thead>
+            <tr><th>Bank / Service</th><th>Format</th><th>How to export</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>ANZ (accounts)</td>
+              <td><span class="badge-format">CSV</span></td>
+              <td>ANZ Internet Banking → Transactions → Export → CSV</td>
+            </tr>
+            <tr>
+              <td>ANZ Plus</td>
+              <td><span class="badge-format">PDF</span></td>
+              <td>ANZ Plus app → Account → Statement → Download PDF</td>
+            </tr>
+            <tr>
+              <td>ANZ Access Advantage</td>
+              <td><span class="badge-format">PDF</span></td>
+              <td>ANZ Internet Banking → Statements → Download branch statement PDF</td>
+            </tr>
+            <tr>
+              <td>28 Degrees / Latitude</td>
+              <td><span class="badge-format">HTML</span> <span class="badge-format">PDF</span></td>
+              <td>Latitude app → Statements → View statement → Save page as HTML</td>
+            </tr>
+            <tr>
+              <td>PayPal</td>
+              <td><span class="badge-format">CSV</span></td>
+              <td>PayPal → Activity → Statements → Download → CSV (all transactions)</td>
+            </tr>
+            <tr>
+              <td>Revolut</td>
+              <td><span class="badge-format">CSV</span></td>
+              <td>Revolut app → Account → Statement → Export to CSV</td>
+            </tr>
+            <tr>
+              <td>Wise</td>
+              <td><span class="badge-format">PDF</span></td>
+              <td>Wise → Account statement → PDF (AUD account)</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="hint" style="text-align:left;margin-top:8px">More banks can be added — post a request on GitHub.</p>
+
+        <div class="btn-row" style="margin-top:28px">
+          <button type="button" class="btn-secondary" onclick="goStep(1)">← Back</button>
+          <button type="button" class="btn-primary" onclick="goStep(3)">Next →</button>
+        </div>
+      </div>
+
+      <!-- ── Step 3: Features ──────────────────────────────────── -->
+      <div class="step-panel" id="panel-3">
+        <div class="info-box" style="margin-bottom:20px">
+          Choose which features to enable. You can change these anytime in <strong>Settings → Modules</strong>.
+        </div>
+        <div class="section-label">Features</div>
+
+        {% set LABELS = {
+          "budgets":         ("Budgets", "Monthly spending limits and budget alerts"),
+          "business":        ("Business & Tax", "FY summary, GST tracking, and reimbursements"),
+          "investments":     ("Investments", "Capital gains, franking credits, and portfolio tracking"),
+          "loans":           ("Loans", "Loan records and repayment tracking"),
+          "goals":           ("Goals", "Savings goals with progress tracking"),
+          "payin4":          ("Pay-in-4 / PayPal", "PayPal Pay-in-4 instalment detection"),
+          "transfers":       ("Transfer Detection", "Inter-account transfer pairing"),
+          "commitments":     ("Commitments", "Recurring commitment detection"),
+          "recommendations": ("AI Recommendations", "Claude AI spending insights"),
+          "coverage":        ("Statement Coverage", "Gap detection across import history"),
+        } %}
+
+        <div class="module-list">
+          {% for key in module_keys %}
+          {% set info = LABELS.get(key, (key, "")) %}
+          <div class="module-row">
+            <div class="module-info">
+              <span class="module-name">{{ info[0] }}</span>
+              <span class="module-desc">{{ info[1] }}</span>
+            </div>
+            <div class="toggle-wrap">
+              <label>
+                <input type="checkbox" class="toggle-input" name="{{ key }}" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="btn-secondary" onclick="goStep(2)">← Back</button>
+          <button type="submit" class="btn-primary">Get started →</button>
+        </div>
+        <p class="hint">All features are enabled by default.</p>
+      </div>
+
+    </form>
+  </div>
+
+  <script>
+    let currentStep = 1;
+
+    function goStep(n) {
+      document.getElementById('panel-' + currentStep).classList.remove('active');
+      document.getElementById('tab-' + currentStep).classList.remove('active');
+      if (n < currentStep) {
+        document.getElementById('tab-' + currentStep).classList.remove('done');
+      } else {
+        document.getElementById('tab-' + currentStep).classList.add('done');
+      }
+      currentStep = n;
+      document.getElementById('panel-' + n).classList.add('active');
+      document.getElementById('tab-' + n).classList.add('active');
+      document.getElementById('tab-' + n).classList.remove('done');
+      window.scrollTo(0, 0);
+    }
+
+    function copyCmd() {
+      const text = document.getElementById('ps-cmd').firstChild.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 2000);
+      });
+    }
+
+    async function testApiKey() {
+      const btn = document.querySelector('.api-test-btn');
+      const status = document.getElementById('api-status');
+      btn.disabled = true;
+      btn.textContent = 'Testing…';
+      status.className = 'api-status';
+      status.style.display = 'none';
+      try {
+        const r = await fetch('/api/setup/test-api-key');
+        const d = await r.json();
+        status.textContent = d.message;
+        status.className = 'api-status ' + (d.ok ? 'ok' : 'fail');
+      } catch (e) {
+        status.textContent = 'Could not reach server';
+        status.className = 'api-status fail';
+      }
+      btn.disabled = false;
+      btn.textContent = 'Test connection';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Merchant Rules — Personal Finance Analyser</title>
+  <style>
+    .header{margin-bottom:24px}
+    .header p{color:#94a3b8;margin-top:6px;font-size:.9rem;line-height:1.5}
+    .card h2{font-size:1rem;color:#e2e8f0;margin-bottom:16px;font-weight:600}
+    .add-form select,.rule-select{padding:9px 14px;border-radius:8px;border:1px solid #2e4a5a;background:#0f1923;color:#e2e8f0;font-size:.9rem;cursor:pointer}
+    .add-form select:focus,.rule-select:focus{outline:none;border-color:#2A9D8F}
+    .count{color:#94a3b8;font-size:.85rem;margin-bottom:10px}
+    .merchant-name{font-family:monospace;color:#e2e8f0}
+    .source-badge{font-size:.72rem;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:8px;vertical-align:middle}
+    .source-custom{background:#2A9D8F22;color:#2A9D8F;border:1px solid #2A9D8F44}
+    .source-builtin{background:#44444422;color:#888;border:1px solid #44444444}
+    .note{background:#1a2e3a;border-radius:8px;padding:12px 16px;font-size:.82rem;color:#94a3b8;margin-top:16px;line-height:1.5}
+  </style>
+</head>
+<body>
+
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>Merchant Category Rules</h1>
+  <p>Rules override the AI for matching transactions — matched case-insensitively as a substring.<br>
+  New rules take effect on the next <strong>Import</strong> or <strong>Re-categorise All</strong> run.</p>
+</div>
+
+<div class="card">
+  <h2>Add New Rule</h2>
+  <div class="add-form">
+    <input type="text" id="new-merchant" placeholder="Merchant name (e.g. COSTCO)" autocomplete="off">
+    <select id="new-category" onchange="syncNewSubcat()">
+      {% for group_name, cats in cat_groups %}
+      <optgroup label="{{ group_name }}">
+        {% for c in cats %}
+        <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+    <select id="new-sub-category" style="min-width:200px"></select>
+    <button class="btn-add" onclick="addRule()">+ Add Rule</button>
+  </div>
+  <div class="note">Tip: use the exact text that appears in the <em>description</em> column on the Transactions page.
+  Shorter fragments match more broadly (e.g. <code>COSTCO</code> matches <code>COSTCO FUEL 1234</code>).</div>
+</div>
+
+<div class="card">
+  <input type="text" class="search-box" id="search" placeholder="&#128269; Search rules…" oninput="filter()" autocomplete="off">
+  <div id="rule-count" class="count"></div>
+  <table>
+    <thead>
+      <tr>
+        <th>Merchant (substring match)</th>
+        <th>Category</th>
+        <th>Sub-category</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="rules-body"></tbody>
+  </table>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+var CATGROUPS = {{ cat_groups | tojson }};
+var _rules = {{ rules | tojson }};
+
+var SUBCATS = {{ subcats | tojson }};
+
+// Returns <option> HTML for a sub-category select.
+// If currentValue is set and not in the standard list, it is prepended so it still displays.
+function subcatOpts(category, currentValue) {
+  var list = SUBCATS[category] || ['Other'];
+  var out = ['<option value="">— None —</option>'];
+  if (currentValue && list.indexOf(currentValue) < 0) {
+    out.push('<option value="' + esc(currentValue) + '" selected>' + esc(currentValue) + '</option>');
+  }
+  list.forEach(function(o) {
+    out.push('<option value="' + esc(o) + '"' + (o === currentValue ? ' selected' : '') + '>' + esc(o) + '</option>');
+  });
+  return out.join('');
+}
+
+// Keeps the "Add" form's sub-category in sync when category changes.
+function syncNewSubcat() {
+  var cat = document.getElementById('new-category').value;
+  document.getElementById('new-sub-category').innerHTML = subcatOpts(cat, '');
+}
+
+function toast(msg, ok) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = ok === false ? '#c95f43' : '#2A9D8F';
+  el.classList.add('show');
+  setTimeout(function() { el.classList.remove('show'); }, 2500);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Rebuilds the entire table — only called when rules data changes (load, add, delete).
+function render(rules) {
+  var tbody = document.getElementById('rules-body');
+  if (!rules.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">No custom rules yet — add one above.</td></tr>';
+    updateCount();
+    return;
+  }
+
+  tbody.innerHTML = rules.map(function(r) {
+    var searchKey = (r.merchant + ' ' + r.category + ' ' + (r.sub_category || '')).toUpperCase();
+    var badge = r.source === 'builtin'
+      ? '<span class="source-badge source-builtin">built-in</span>'
+      : '<span class="source-badge source-custom">custom</span>';
+    var catOpts = CATGROUPS.map(function(g) {
+      return '<optgroup label="' + esc(g[0]) + '">' +
+        g[1].map(function(c) {
+          return '<option' + (c === r.category ? ' selected' : '') + '>' + esc(c) + '</option>';
+        }).join('') + '</optgroup>';
+    }).join('');
+    var rowId = 'row-' + r.merchant.replace(/[^a-zA-Z0-9]/g, '_');
+    var catSel = '<select class="rule-select cat-sel" data-m="' + esc(r.merchant) + '" data-row="' + rowId + '">' + catOpts + '</select>';
+    var subCell = '<select class="rule-select sub-sel" data-m="' + esc(r.merchant) + '" data-row="' + rowId + '" style="min-width:160px">' + subcatOpts(r.category, r.sub_category || '') + '</select>';
+    var del = r.source === 'builtin' ? '' :
+      '<button class="btn-del" onclick="del(\'' + r.merchant.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\')">Delete</button>';
+    return '<tr id="' + rowId + '" data-search="' + esc(searchKey) + '">' +
+      '<td class="merchant-name">' + esc(r.merchant) + badge + '</td>' +
+      '<td>' + catSel + '</td><td>' + subCell + '</td><td>' + del + '</td></tr>';
+  }).join('');
+
+  // When category changes, refresh the sub-category options to match the new category.
+  tbody.querySelectorAll('.cat-sel').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var row = document.getElementById(el.dataset.row);
+      var subSel = row.querySelector('.sub-sel');
+      if (subSel) subSel.innerHTML = subcatOpts(el.value, '');
+      saveRow(el.dataset.m, el.dataset.row);
+    });
+  });
+  tbody.querySelectorAll('.sub-sel').forEach(function(el) {
+    el.addEventListener('change', function() { saveRow(el.dataset.m, el.dataset.row); });
+  });
+
+  filter();  // apply current search without rebuilding DOM
+}
+
+// Hides/shows rows by toggling display — never touches DOM structure or event listeners.
+function filter() {
+  var q = (document.getElementById('search').value || '').toUpperCase().trim();
+  document.getElementById('rules-body').querySelectorAll('tr[data-search]').forEach(function(row) {
+    row.style.display = (!q || row.dataset.search.indexOf(q) >= 0) ? '' : 'none';
+  });
+  updateCount();
+}
+
+function updateCount() {
+  var rows = document.getElementById('rules-body').querySelectorAll('tr[data-search]');
+  var visible = 0;
+  rows.forEach(function(r) { if (r.style.display !== 'none') visible++; });
+  var total = rows.length;
+  var el = document.getElementById('rule-count');
+  if (!total) { el.textContent = ''; return; }
+  el.textContent = (visible === total ? total : visible + ' of ' + total) + ' rule' + (total !== 1 ? 's' : '');
+}
+
+function saveRow(merchant, rowId) {
+  var row = document.getElementById(rowId);
+  var cat = row.querySelector('.cat-sel').value;
+  var subEl = row.querySelector('.sub-sel');
+  var sub = subEl ? subEl.value : '';
+  update(merchant, cat, sub);
+}
+
+function load() {
+  fetch('/api/merchant-rules').then(function(r) { return r.json(); }).then(function(d) {
+    _rules = d.rules || [];
+    render(_rules);
+  });
+}
+
+function addRule() {
+  var m = document.getElementById('new-merchant').value.trim().toUpperCase();
+  var c = document.getElementById('new-category').value;
+  var s = document.getElementById('new-sub-category').value;
+  if (!m) { toast('Enter a merchant name', false); return; }
+  post({merchant: m, category: c, sub_category: s}, function(ok) {
+    if (ok) {
+      document.getElementById('new-merchant').value = '';
+      syncNewSubcat();  // reset sub-category back to the default list
+      toast('Added: ' + m);
+      load();
+    } else {
+      toast('Failed to add rule', false);
+    }
+  });
+}
+
+function update(merchant, category, sub_category) {
+  post({merchant: merchant, category: category, sub_category: sub_category || ''}, function(ok) {
+    if (ok) toast('Saved: ' + merchant);
+    else toast('Save failed', false);
+  });
+}
+
+function del(merchant) {
+  if (!confirm('Delete rule for "' + merchant + '"?')) return;
+  fetch('/api/merchant-rules', {
+    method: 'DELETE',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({merchant: merchant})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) { toast('Deleted: ' + merchant); load(); }
+    else toast(d.error || 'Error', false);
+  });
+}
+
+function post(data, cb) {
+  fetch('/api/merchant-rules', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  }).then(function(r) { return r.json(); }).then(function(d) { cb(d.ok); });
+}
+
+// Initialise
+syncNewSubcat();
+render(_rules);
+</script>
+
+<!-- ── Cache Management ─────────────────────────────────────────────────── -->
+<div class="card" style="margin-top:28px">
+  <h2 style="margin-bottom:4px">Categorisation Cache</h2>
+  <p style="color:#94a3b8;font-size:.83rem;margin-bottom:14px">
+    The cache stores AI-assigned categories so identical descriptions are never re-sent to the API.
+    If a transaction was wrongly categorised and you have already fixed it in Transactions, delete its
+    cache entry here so future imports use the corrected category.
+  </p>
+  <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+    <input type="text" class="search-box" id="cache-search" placeholder="&#128269; Filter by description…"
+           oninput="searchCache()" autocomplete="off" style="margin-bottom:0;flex:1;min-width:200px">
+    <button class="btn-add" onclick="loadCache()" style="background:#2e4a5a;white-space:nowrap">Refresh</button>
+    <button class="btn-add" onclick="clearAllCache()" style="background:#7b2d2d;white-space:nowrap">Clear All</button>
+  </div>
+  <div id="cache-count" class="count"></div>
+  <table>
+    <thead>
+      <tr>
+        <th>Description key</th>
+        <th>Dir</th>
+        <th>Category</th>
+        <th>Business</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="cache-body">
+      <tr><td colspan="5" class="empty">Type to search or click Refresh to load entries.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+var _cacheEntries = [];
+
+function loadCache() {
+  var q = (document.getElementById('cache-search').value || '').trim();
+  var url = '/api/cache' + (q ? '?q=' + encodeURIComponent(q.toUpperCase()) : '');
+  fetch(url).then(function(r) { return r.json(); }).then(function(d) {
+    _cacheEntries = d.entries || [];
+    renderCache(_cacheEntries, d.total || 0);
+  });
+}
+
+function searchCache() {
+  var q = (document.getElementById('cache-search').value || '').toUpperCase().trim();
+  if (!q) { renderCache([], 0); return; }
+  var filtered = _cacheEntries.filter(function(e) { return e.key.indexOf(q) >= 0; });
+  renderCacheRows(filtered);
+  updateCacheCount(filtered.length, _cacheEntries.length);
+}
+
+function renderCache(entries, total) {
+  renderCacheRows(entries);
+  updateCacheCount(entries.length, total);
+}
+
+function renderCacheRows(entries) {
+  var tbody = document.getElementById('cache-body');
+  if (!entries.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">No entries — try a different search or click Refresh.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = entries.map(function(e) {
+    var parts = e.key.split('|');
+    var desc = parts[0] || e.key;
+    var dir = parts[1] ? parts[1].toUpperCase() : '';
+    var dirStyle = dir === 'CR' ? 'color:#2A9D8F' : 'color:#c95f43';
+    var biz = e.business ? '<span style="color:#2A9D8F;font-weight:700">✓</span>' : '<span style="color:#444">–</span>';
+    return '<tr>' +
+      '<td class="merchant-name" style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(e.key) + '">' + esc(desc) + '</td>' +
+      '<td style="' + dirStyle + ';font-weight:700;font-size:.8rem">' + esc(dir) + '</td>' +
+      '<td>' + esc(e.category) + '</td>' +
+      '<td style="text-align:center">' + biz + '</td>' +
+      '<td><button class="btn-del" onclick="deleteCache(' + "'" + esc(e.key) + "'" + ')">Delete</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function updateCacheCount(shown, total) {
+  var el = document.getElementById('cache-count');
+  if (!total) { el.textContent = 'No entries loaded'; return; }
+  el.textContent = (shown === total ? total : shown + ' of ' + total) + ' entr' + (total !== 1 ? 'ies' : 'y');
+}
+
+function deleteCache(key) {
+  if (!confirm('Delete cache entry for:\n"' + key + '"?')) return;
+  fetch('/api/cache', {
+    method: 'DELETE',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({key: key})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) { toast('Cache entry deleted'); loadCache(); }
+    else toast(d.error || 'Error', false);
+  });
+}
+
+function clearAllCache() {
+  if (!confirm('Delete ALL cache entries? The AI will re-categorise every uncached transaction on the next import.')) return;
+  fetch('/api/cache', {
+    method: 'DELETE',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({clear_all: true})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) { toast('Cleared ' + d.deleted + ' cache entries'); _cacheEntries = []; renderCache([], 0); }
+    else toast(d.error || 'Error', false);
+  });
+}
+</script>
+</body>
+</html>

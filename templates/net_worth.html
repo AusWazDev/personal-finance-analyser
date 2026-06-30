@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Net Worth — Personal Finance Analyser</title>
+  <style>
+    .nw-stats{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap}
+    .nw-stat{background:#1d3540;border-radius:10px;padding:16px 22px;flex:1;min-width:140px}
+    .nw-stat .lbl{font-size:.7rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+    .nw-stat .val{font-size:1.3rem;font-weight:700;color:#e2e8f0}
+    .nw-stat .sub{font-size:.75rem;color:#64748b;margin-top:3px}
+    .nw-stat.net{background:linear-gradient(135deg,#164e41,#1d3540)}
+    .nw-stat.net .val{color:#2A9D8F;font-size:1.5rem}
+    .nw-stat.liab .val{color:#f87171}
+    .asset-section{margin-bottom:16px}
+    .asset-section-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8}
+    .asset-section-icon{font-size:1.1rem}
+    .asset-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:#1d3540;border-radius:10px;margin-bottom:8px;flex-wrap:wrap}
+    .asset-name{font-weight:600;color:#e2e8f0;flex:1;min-width:120px}
+    .asset-val{font-size:1.05rem;font-weight:700;color:#e2e8f0;white-space:nowrap}
+    .asset-meta{font-size:.75rem;color:#64748b}
+    .equity-chip{background:#0f1923;border-radius:8px;padding:4px 10px;font-size:.78rem;font-weight:600;white-space:nowrap}
+    .equity-chip.good{color:#22c55e}
+    .equity-chip.warn{color:#f59e0b}
+    .equity-chip.risk{color:#f87171}
+    .super-chip{background:#0f1923;border-radius:8px;padding:4px 10px;font-size:.78rem;color:#94a3b8;white-space:nowrap}
+    .asset-actions{display:flex;gap:6px;margin-left:auto}
+    .asset-btn{background:none;border:1px solid #2e4a5a;color:#94a3b8;border-radius:6px;padding:4px 10px;font-size:.73rem;cursor:pointer;white-space:nowrap}
+    .asset-btn:hover{border-color:#2a9d8f;color:#2a9d8f}
+    .asset-btn.del:hover{border-color:#f87171;color:#f87171}
+    .card-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+    .add-btn{background:#2A9D8F;color:white;border:none;border-radius:8px;padding:7px 16px;font-size:.82rem;font-weight:600;cursor:pointer}
+    .add-btn:hover{background:#238c7e}
+    .liab-table{width:100%;border-collapse:collapse;font-size:.85rem}
+    .liab-table th{text-align:left;padding:8px 10px;font-size:.72rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #2e4a5a}
+    .liab-table th.r,.liab-table td.r{text-align:right}
+    .liab-table td{padding:10px 10px;border-bottom:1px solid #1a2e3a;vertical-align:middle}
+    .liab-table tr:hover td{background:#1d3540}
+    .type-badge{font-size:.68rem;padding:2px 8px;border-radius:8px;background:#0f1923;color:#94a3b8;white-space:nowrap}
+    .bank-table{width:100%;border-collapse:collapse;font-size:.88rem}
+    .bank-table th{text-align:left;padding:8px 14px;font-size:.75rem;color:#94a3b8;font-weight:600;text-transform:uppercase;border-bottom:2px solid #2e4a5a}
+    .bank-table td{padding:9px 14px;border-bottom:1px solid #1a2e3a}
+    .bank-table tr:hover td{background:#1d3540}
+    .empty-hint{text-align:center;padding:28px;color:#4a6070;font-size:.88rem}
+    /* Modal */
+    .nw-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1000;align-items:center;justify-content:center}
+    .nw-modal-overlay.open{display:flex}
+    .nw-modal{background:#1d3540;border-radius:14px;padding:28px;width:min(480px,94vw);max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+    .nw-modal h3{margin:0 0 20px;color:#e2e8f0;font-size:1rem}
+    .nw-form-row{margin-bottom:14px}
+    .nw-form-row label{display:block;font-size:.78rem;color:#94a3b8;margin-bottom:5px;font-weight:600}
+    .nw-inp{width:100%;background:#0f1923;border:1px solid #2e4a5a;color:#e2e8f0;border-radius:8px;padding:8px 12px;font-size:.87rem;box-sizing:border-box}
+    .nw-inp:focus{outline:none;border-color:#2a9d8f}
+    .nw-inp-sel{appearance:none}
+    .nw-modal-btns{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
+    .nw-cancel-btn{background:transparent;border:1px solid #2e4a5a;color:#94a3b8;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:.85rem}
+    .nw-save-btn{background:#2A9D8F;color:white;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-size:.85rem;font-weight:600}
+    .nw-save-btn:hover{background:#238c7e}
+    .nw-super-extra{display:none}
+    .chart-wrap{min-height:300px}
+  </style>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+
+{% set active_section = 'data' %}
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>Net Worth</h1>
+  <p>Complete balance sheet — bank accounts, manual assets, and liabilities.</p>
+</div>
+
+<!-- Summary cards -->
+<div class="nw-stats">
+  <div class="nw-stat">
+    <div class="lbl">Bank Accounts</div>
+    <div class="val">${{ "{:,.0f}".format(total_bank) }}</div>
+    <div class="sub">{{ data.account_count if data.has_data else 0 }} account(s)</div>
+  </div>
+  <div class="nw-stat">
+    <div class="lbl">Manual Assets</div>
+    <div class="val">${{ "{:,.0f}".format(total_manual) }}</div>
+    <div class="sub">{{ assets|length }} asset(s)</div>
+  </div>
+  <div class="nw-stat liab">
+    <div class="lbl">Liabilities</div>
+    <div class="val">-${{ "{:,.0f}".format(total_liab) }}</div>
+    <div class="sub">{{ liabilities|length }} item(s)</div>
+  </div>
+  <div class="nw-stat net">
+    <div class="lbl">Net Worth</div>
+    <div class="val">{% if net_worth >= 0 %}${{ "{:,.0f}".format(net_worth) }}{% else %}-${{ "{:,.0f}".format(net_worth|abs) }}{% endif %}</div>
+    <div class="sub">assets minus liabilities</div>
+  </div>
+</div>
+
+<!-- Historical chart -->
+{% if nw_history_json != '[]' or data.has_data %}
+<div class="card">
+  <div class="card-title">Net Worth Over Time</div>
+  <div class="chart-wrap" id="nw-chart"></div>
+</div>
+{% endif %}
+
+<!-- 10-Year Projection -->
+<div class="card">
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+    <div class="card-title" style="margin:0">10-Year Projection</div>
+    <form method="get" action="/net-worth" style="display:flex;align-items:center;gap:8px">
+      <label style="font-size:.8rem;color:var(--text-2)">Monthly savings</label>
+      <input type="number" name="monthly_savings" value="{{ monthly_savings|int }}" min="0" step="100"
+             style="width:100px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;
+                    background:var(--surface-2);color:var(--text-1);font-size:.82rem">
+      <button type="submit" style="padding:5px 12px;background:var(--accent);color:#fff;
+              border:none;border-radius:8px;font-size:.82rem;cursor:pointer">Update</button>
+    </form>
+  </div>
+  <div id="projection-chart" style="height:280px"></div>
+  <div style="font-size:.75rem;color:var(--text-2);margin-top:10px">
+    Pessimistic 3% · Base 6% · Optimistic 9% annual growth. Liabilities amortised over 25 years.
+    Starting net worth: ${{ "{:,.0f}".format(net_worth) }}.
+  </div>
+</div>
+
+<!-- Bank Accounts -->
+{% if data.has_data %}
+<div class="card">
+  <div class="card-title">Bank Accounts</div>
+  <table class="bank-table">
+    <thead>
+      <tr>
+        <th>Account</th>
+        <th>Type</th>
+        <th>As Of</th>
+        <th style="text-align:right">Balance</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{ data.table_body_html | safe }}
+      <tr style="font-weight:700;border-top:2px solid #2e4a5a">
+        <td colspan="3" style="padding:9px 14px">Total</td>
+        <td style="padding:9px 14px;text-align:right">${{ "{:,.2f}".format(data.total_balance) }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-hint">
+    No bank account balance snapshots yet.<br>
+    Import statements to populate account balances.
+  </div>
+</div>
+{% endif %}
+
+<!-- Manual Assets -->
+<div class="card">
+  <div class="card-title-row">
+    <div class="card-title" style="margin-bottom:0">Assets</div>
+    <button class="add-btn" onclick="openModal('asset')">+ Add Asset</button>
+  </div>
+
+  {% set type_icons = {"property": "🏠", "super": "🏦", "vehicle": "🚗", "investment": "📈", "other": "📦"} %}
+  {% for atype in ["property", "super", "vehicle", "investment", "other"] %}
+    {% set type_assets = assets | selectattr("type", "equalto", atype) | list %}
+    {% if type_assets %}
+    <div class="asset-section">
+      <div class="asset-section-hdr">
+        <span class="asset-section-icon">{{ type_icons[atype] }}</span>
+        {{ asset_type_labels[atype] }}
+      </div>
+      {% for a in type_assets %}
+      <div class="asset-row">
+        <div>
+          <div class="asset-name">{{ a.name }}</div>
+          {% if a.get("address") %}<div class="asset-meta">{{ a.address }}</div>{% endif %}
+          {% if a.snapshots %}
+          <div class="asset-meta">Last updated {{ a.snapshots[-1].date }}</div>
+          {% endif %}
+        </div>
+        <div class="asset-val">${{ "{:,.0f}".format(a.current_value) }}</div>
+        {% if atype == "property" and a.get("equity") is not none %}
+          {% set lvr = a.get("lvr") %}
+          <div class="equity-chip {{ 'good' if (lvr or 0) < 80 else ('warn' if (lvr or 0) < 90 else 'risk') }}">
+            Equity ${{ "{:,.0f}".format(a.equity) }}{% if lvr %} · LVR {{ lvr }}%{% endif %}
+          </div>
+        {% endif %}
+        {% if atype == "super" and a.get("projected") %}
+          <div class="super-chip">Projected ${{ "{:,.0f}".format(a.projected) }} at {{ a.get("retirement_age", 67) }}</div>
+        {% endif %}
+        <div class="asset-actions">
+          <button class="asset-btn" onclick="openSnapshot('asset','{{ a.asset_id }}','{{ a.name|e }}')">+ Snapshot</button>
+          <button class="asset-btn" onclick="openEditAsset({{ a|tojson|e }})">Edit</button>
+          <button class="asset-btn del" onclick="deleteAsset('{{ a.asset_id }}','{{ a.name|e }}')">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endfor %}
+
+  {% if not assets %}
+  <div class="empty-hint">No manual assets yet. Click <strong>+ Add Asset</strong> to record property, superannuation, vehicles, or investments.</div>
+  {% endif %}
+</div>
+
+<!-- Liabilities -->
+<div class="card">
+  <div class="card-title-row">
+    <div class="card-title" style="margin-bottom:0">Liabilities</div>
+    <button class="add-btn" onclick="openModal('liability')">+ Add Liability</button>
+  </div>
+
+  {% if liabilities %}
+  <table class="liab-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th class="r">Balance</th>
+        <th class="r">Rate %</th>
+        <th>Last Updated</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in liabilities %}
+      <tr>
+        <td style="font-weight:600">{{ l.name }}</td>
+        <td><span class="type-badge">{{ liability_type_labels.get(l.type, l.type) }}</span></td>
+        <td class="r" style="color:#f87171;font-weight:700">${{ "{:,.0f}".format(l.current_balance) }}</td>
+        <td class="r" style="color:#94a3b8">{% if l.get("interest_rate_pct") %}{{ l.interest_rate_pct }}%{% else %}—{% endif %}</td>
+        <td style="color:#64748b;font-size:.8rem">{{ l.snapshots[-1].date if l.snapshots else '—' }}</td>
+        <td>
+          <div style="display:flex;gap:6px;justify-content:flex-end">
+            <button class="asset-btn" onclick="openSnapshot('liability','{{ l.liability_id }}','{{ l.name|e }}')">+ Snapshot</button>
+            <button class="asset-btn del" onclick="deleteLiability('{{ l.liability_id }}','{{ l.name|e }}')">✕</button>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      <tr style="font-weight:700;border-top:2px solid #2e4a5a">
+        <td colspan="2" style="padding:9px 10px;color:#f87171">Total Liabilities</td>
+        <td class="r" style="padding:9px 10px;color:#f87171">-${{ "{:,.0f}".format(total_liab) }}</td>
+        <td colspan="3"></td>
+      </tr>
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-hint">No liabilities yet. Click <strong>+ Add Liability</strong> to record mortgages, HECS/HELP debt, car finance, or other obligations.</div>
+  {% endif %}
+</div>
+
+
+<!-- ── Add Asset Modal ──────────────────────────────────────────────────── -->
+<div class="nw-modal-overlay" id="asset-modal">
+  <div class="nw-modal">
+    <h3 id="asset-modal-title">Add Asset</h3>
+    <input type="hidden" id="asset-edit-id" value="">
+    <div class="nw-form-row">
+      <label>Type</label>
+      <select class="nw-inp nw-inp-sel" id="asset-type" onchange="onAssetTypeChange()">
+        {% for k,v in asset_type_labels.items() %}
+        <option value="{{ k }}">{{ v }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="nw-form-row">
+      <label>Name</label>
+      <input class="nw-inp" id="asset-name" type="text" placeholder="e.g. Home at 42 Main St">
+    </div>
+    <div class="nw-form-row" id="asset-address-row" style="display:none">
+      <label>Address</label>
+      <input class="nw-inp" id="asset-address" type="text" placeholder="Full street address">
+    </div>
+    <div class="nw-form-row" id="asset-value-row">
+      <label>Current Value ($)</label>
+      <input class="nw-inp" id="asset-value" type="number" min="0" step="1000">
+    </div>
+    <div class="nw-form-row" id="asset-date-row">
+      <label>Valuation Date</label>
+      <input class="nw-inp" id="asset-value-date" type="date">
+    </div>
+    <div class="nw-super-extra" id="super-extra">
+      <div class="nw-form-row">
+        <label>Birth Year</label>
+        <input class="nw-inp" id="super-birth-year" type="number" min="1940" max="2010" placeholder="e.g. 1988">
+      </div>
+      <div class="nw-form-row">
+        <label>Retirement Age</label>
+        <input class="nw-inp" id="super-retire-age" type="number" min="55" max="75" value="67">
+      </div>
+      <div class="nw-form-row">
+        <label>Expected Annual Return (%)</label>
+        <input class="nw-inp" id="super-return" type="number" min="0" max="20" step="0.1" value="7">
+      </div>
+      <div class="nw-form-row">
+        <label>Annual Contribution ($ — optional)</label>
+        <input class="nw-inp" id="super-contrib" type="number" min="0" step="100" placeholder="0">
+      </div>
+    </div>
+    <div class="nw-form-row">
+      <label>Notes</label>
+      <input class="nw-inp" id="asset-notes" type="text" placeholder="Optional note">
+    </div>
+    <div class="nw-modal-btns">
+      <button class="nw-cancel-btn" onclick="closeModal('asset')">Cancel</button>
+      <button class="nw-save-btn" onclick="saveAsset()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Add Liability Modal ─────────────────────────────────────────────── -->
+<div class="nw-modal-overlay" id="liability-modal">
+  <div class="nw-modal">
+    <h3>Add Liability</h3>
+    <div class="nw-form-row">
+      <label>Type</label>
+      <select class="nw-inp nw-inp-sel" id="liab-type">
+        {% for k,v in liability_type_labels.items() %}
+        <option value="{{ k }}">{{ v }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="nw-form-row">
+      <label>Name</label>
+      <input class="nw-inp" id="liab-name" type="text" placeholder="e.g. ANZ Home Loan">
+    </div>
+    <div class="nw-form-row">
+      <label>Current Balance ($)</label>
+      <input class="nw-inp" id="liab-balance" type="number" min="0" step="1000">
+    </div>
+    <div class="nw-form-row">
+      <label>As Of Date</label>
+      <input class="nw-inp" id="liab-date" type="date">
+    </div>
+    <div class="nw-form-row">
+      <label>Interest Rate % (annual, optional)</label>
+      <input class="nw-inp" id="liab-rate" type="number" min="0" max="50" step="0.01" placeholder="e.g. 6.25">
+    </div>
+    <div class="nw-form-row">
+      <label>Linked Asset (optional)</label>
+      <select class="nw-inp nw-inp-sel" id="liab-asset">
+        <option value="">— none —</option>
+        {% for a in assets %}
+        <option value="{{ a.asset_id }}">{{ a.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="nw-form-row">
+      <label>Notes</label>
+      <input class="nw-inp" id="liab-notes" type="text" placeholder="Optional note">
+    </div>
+    <div class="nw-modal-btns">
+      <button class="nw-cancel-btn" onclick="closeModal('liability')">Cancel</button>
+      <button class="nw-save-btn" onclick="saveLiability()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Snapshot Modal ─────────────────────────────────────────────────── -->
+<div class="nw-modal-overlay" id="snapshot-modal">
+  <div class="nw-modal">
+    <h3 id="snap-title">Add Snapshot</h3>
+    <input type="hidden" id="snap-kind" value="">
+    <input type="hidden" id="snap-id" value="">
+    <div class="nw-form-row">
+      <label id="snap-value-label">Value ($)</label>
+      <input class="nw-inp" id="snap-value" type="number" min="0" step="1000">
+    </div>
+    <div class="nw-form-row">
+      <label>Date</label>
+      <input class="nw-inp" id="snap-date" type="date">
+    </div>
+    <div class="nw-modal-btns">
+      <button class="nw-cancel-btn" onclick="closeModal('snapshot')">Cancel</button>
+      <button class="nw-save-btn" onclick="saveSnapshot()">Save</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ── Plotly chart ─────────────────────────────────────────────────────────────
+var NW_HIST = {{ nw_history_json|safe }};
+
+(function() {
+  if (!NW_HIST.length) return;
+  var x = NW_HIST.map(function(r){ return r.date; });
+  var traces = [];
+  if (NW_HIST.some(function(r){ return r.bank > 0; })) {
+    traces.push({x:x, y:NW_HIST.map(function(r){ return r.bank; }), name:'Bank Accounts',
+      mode:'lines', stackgroup:'assets', fillcolor:'rgba(42,157,143,.6)', line:{color:'#2A9D8F',width:1}});
+  }
+  if (NW_HIST.some(function(r){ return r.manual > 0; })) {
+    traces.push({x:x, y:NW_HIST.map(function(r){ return r.manual; }), name:'Manual Assets',
+      mode:'lines', stackgroup:'assets', fillcolor:'rgba(67,97,238,.5)', line:{color:'#4361EE',width:1}});
+  }
+  if (NW_HIST.some(function(r){ return r.liabilities > 0; })) {
+    traces.push({x:x, y:NW_HIST.map(function(r){ return -r.liabilities; }), name:'Liabilities',
+      mode:'lines', fill:'tozeroy', fillcolor:'rgba(248,113,113,.25)',
+      line:{color:'#f87171',width:1.5,dash:'dot'}});
+  }
+  traces.push({x:x, y:NW_HIST.map(function(r){ return r.net_worth; }), name:'Net Worth',
+    mode:'lines+markers', line:{color:'#00BB77',width:3,dash:'dot'},
+    marker:{size:6,symbol:'diamond'}});
+
+  var layout = {
+    paper_bgcolor:'#1d3540', plot_bgcolor:'#0f1923',
+    font:{color:'#94a3b8',size:11},
+    margin:{l:70,r:20,t:10,b:40},
+    xaxis:{gridcolor:'#2e4a5a'},
+    yaxis:{gridcolor:'#2e4a5a',tickprefix:'$',tickformat:',.0f'},
+    legend:{orientation:'h',y:1.06},
+    hovermode:'x unified',
+  };
+  Plotly.newPlot('nw-chart', traces, layout, {responsive:true, displayModeBar:false});
+})();
+
+// ── Modals ───────────────────────────────────────────────────────────────────
+var TODAY = new Date().toISOString().slice(0,10);
+
+function openModal(kind) {
+  if (kind === 'asset') {
+    document.getElementById('asset-modal-title').textContent = 'Add Asset';
+    document.getElementById('asset-edit-id').value = '';
+    document.getElementById('asset-name').value = '';
+    document.getElementById('asset-value').value = '';
+    document.getElementById('asset-notes').value = '';
+    document.getElementById('asset-address').value = '';
+    document.getElementById('asset-value-date').value = TODAY;
+    document.getElementById('asset-type').value = 'property';
+    onAssetTypeChange();
+  } else if (kind === 'liability') {
+    document.getElementById('liab-name').value = '';
+    document.getElementById('liab-balance').value = '';
+    document.getElementById('liab-rate').value = '';
+    document.getElementById('liab-notes').value = '';
+    document.getElementById('liab-date').value = TODAY;
+    document.getElementById('liab-type').value = 'mortgage';
+    document.getElementById('liab-asset').value = '';
+  }
+  document.getElementById(kind + '-modal').classList.add('open');
+}
+
+function openEditAsset(asset) {
+  document.getElementById('asset-modal-title').textContent = 'Edit Asset';
+  document.getElementById('asset-edit-id').value = asset.asset_id;
+  document.getElementById('asset-name').value = asset.name || '';
+  document.getElementById('asset-notes').value = asset.notes || '';
+  document.getElementById('asset-address').value = asset.address || '';
+  document.getElementById('asset-type').value = asset.type || 'other';
+  document.getElementById('asset-value').value = '';
+  document.getElementById('asset-value-date').value = TODAY;
+  if (asset.type === 'super') {
+    document.getElementById('super-birth-year').value = asset.birth_year || '';
+    document.getElementById('super-retire-age').value = asset.retirement_age || 67;
+    document.getElementById('super-return').value = asset.expected_return_pct || 7;
+    document.getElementById('super-contrib').value = asset.annual_contribution || 0;
+  }
+  onAssetTypeChange();
+  document.getElementById('asset-modal').classList.add('open');
+}
+
+function closeModal(kind) {
+  document.getElementById(kind + '-modal').classList.remove('open');
+}
+
+function onAssetTypeChange() {
+  var t = document.getElementById('asset-type').value;
+  document.getElementById('asset-address-row').style.display = t === 'property' ? '' : 'none';
+  document.getElementById('super-extra').style.display = t === 'super' ? '' : 'none';
+}
+
+function saveAsset() {
+  var editId = document.getElementById('asset-edit-id').value;
+  var name = document.getElementById('asset-name').value.trim();
+  if (!name) { alert('Name is required'); return; }
+  var atype = document.getElementById('asset-type').value;
+  var valueStr = document.getElementById('asset-value').value;
+  var snap_date = document.getElementById('asset-value-date').value;
+  var notes = document.getElementById('asset-notes').value;
+  var address = document.getElementById('asset-address').value;
+
+  if (editId) {
+    // Edit existing
+    var body = {name: name, notes: notes};
+    if (address) body.address = address;
+    if (atype === 'super') {
+      body.birth_year = parseInt(document.getElementById('super-birth-year').value) || null;
+      body.retirement_age = parseInt(document.getElementById('super-retire-age').value) || 67;
+      body.expected_return_pct = parseFloat(document.getElementById('super-return').value) || 7;
+      body.annual_contribution = parseFloat(document.getElementById('super-contrib').value) || 0;
+    }
+    fetch('/api/assets/' + editId, {method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)})
+    .then(function(r){return r.json();}).then(function(d){
+      if (d.ok) {
+        // If value was also provided, add snapshot
+        if (valueStr) {
+          fetch('/api/assets/' + editId + '/snapshots', {method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({value: parseFloat(valueStr), date: snap_date})})
+          .then(function(){location.reload();});
+        } else {
+          location.reload();
+        }
+      }
+    });
+  } else {
+    // Create new
+    var body = {type: atype, name: name, notes: notes};
+    if (valueStr) { body.initial_value = parseFloat(valueStr); body.initial_date = snap_date; }
+    if (address) body.address = address;
+    if (atype === 'super') {
+      body.birth_year = parseInt(document.getElementById('super-birth-year').value) || null;
+      body.retirement_age = parseInt(document.getElementById('super-retire-age').value) || 67;
+      body.expected_return_pct = parseFloat(document.getElementById('super-return').value) || 7;
+      body.annual_contribution = parseFloat(document.getElementById('super-contrib').value) || 0;
+    }
+    fetch('/api/assets', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)})
+    .then(function(r){return r.json();}).then(function(d){
+      if (d.ok) location.reload();
+    });
+  }
+}
+
+function deleteAsset(id, name) {
+  if (!confirm('Delete asset "' + name + '"? This cannot be undone.')) return;
+  fetch('/api/assets/' + id, {method:'DELETE'})
+    .then(function(r){return r.json();}).then(function(d){ if (d.ok) location.reload(); });
+}
+
+function saveLiability() {
+  var name = document.getElementById('liab-name').value.trim();
+  if (!name) { alert('Name is required'); return; }
+  var bal = document.getElementById('liab-balance').value;
+  var body = {
+    type: document.getElementById('liab-type').value,
+    name: name,
+    notes: document.getElementById('liab-notes').value,
+    interest_rate_pct: parseFloat(document.getElementById('liab-rate').value) || null,
+    linked_asset_id: document.getElementById('liab-asset').value || null,
+  };
+  if (bal) { body.initial_balance = parseFloat(bal); body.initial_date = document.getElementById('liab-date').value; }
+  fetch('/api/liabilities', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)})
+  .then(function(r){return r.json();}).then(function(d){ if (d.ok) location.reload(); });
+}
+
+function deleteLiability(id, name) {
+  if (!confirm('Delete liability "' + name + '"? This cannot be undone.')) return;
+  fetch('/api/liabilities/' + id, {method:'DELETE'})
+    .then(function(r){return r.json();}).then(function(d){ if (d.ok) location.reload(); });
+}
+
+function openSnapshot(kind, id, name) {
+  document.getElementById('snap-kind').value = kind;
+  document.getElementById('snap-id').value = id;
+  document.getElementById('snap-title').textContent = 'Update ' + name;
+  document.getElementById('snap-value-label').textContent = kind === 'asset' ? 'Value ($)' : 'Balance ($)';
+  document.getElementById('snap-value').value = '';
+  document.getElementById('snap-date').value = TODAY;
+  document.getElementById('snapshot-modal').classList.add('open');
+}
+
+function saveSnapshot() {
+  var kind = document.getElementById('snap-kind').value;
+  var id = document.getElementById('snap-id').value;
+  var val = parseFloat(document.getElementById('snap-value').value);
+  var date = document.getElementById('snap-date').value;
+  if (!val && val !== 0) { alert('Value required'); return; }
+  var url, body;
+  if (kind === 'asset') {
+    url = '/api/assets/' + id + '/snapshots';
+    body = {value: val, date: date};
+  } else {
+    url = '/api/liabilities/' + id + '/snapshots';
+    body = {balance: val, date: date};
+  }
+  fetch(url, {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)})
+  .then(function(r){return r.json();}).then(function(d){ if (d.ok) location.reload(); });
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.nw-modal-overlay').forEach(function(el) {
+  el.addEventListener('click', function(e) {
+    if (e.target === el) el.classList.remove('open');
+  });
+});
+
+// ── 10-Year projection chart ──────────────────────────────────────────────────
+(function() {
+  var proj = {{ projection_json|safe }};
+  var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  var gridColor = isDark ? '#1e3340' : '#e2e8f0';
+  var fontColor = isDark ? '#94a3b8' : '#334155';
+
+  Plotly.newPlot('projection-chart', [
+    {
+      x: proj.labels, y: proj.pessimistic, name: 'Pessimistic (3%)',
+      type: 'scatter', mode: 'lines',
+      line: {color: isDark ? '#ef4444' : '#dc2626', dash: 'dot', width: 2},
+      hovertemplate: '%{x}<br>$%{y:,.0f}<extra>Pessimistic</extra>'
+    },
+    {
+      x: proj.labels, y: proj.base, name: 'Base (6%)',
+      type: 'scatter', mode: 'lines+markers',
+      line: {color: '#2A9D8F', width: 3},
+      marker: {size: 5},
+      hovertemplate: '%{x}<br>$%{y:,.0f}<extra>Base</extra>'
+    },
+    {
+      x: proj.labels, y: proj.optimistic, name: 'Optimistic (9%)',
+      type: 'scatter', mode: 'lines',
+      line: {color: isDark ? '#22c55e' : '#16a34a', dash: 'dot', width: 2},
+      hovertemplate: '%{x}<br>$%{y:,.0f}<extra>Optimistic</extra>'
+    }
+  ], {
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: {color: fontColor, size: 11},
+    xaxis: {showgrid: false, zeroline: false, showline: false},
+    yaxis: {gridcolor: gridColor, zeroline: false, showline: false,
+            tickprefix: '$', tickformat: ',.0f'},
+    legend: {orientation: 'h', y: 1.12, font: {size: 11}},
+    margin: {l: 70, r: 20, t: 30, b: 40}, height: 280
+  }, {responsive: true, displayModeBar: false});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Capital Gains — Personal Finance Analyser</title>
+  <style>
+    .header h1{color:#059669}
+    .fy-badge{font-size:.72rem;padding:2px 8px;border-radius:4px;font-weight:600;background:#059669;color:white}
+    .fy-badge.current{background:#E9C46A;color:#333}
+    .fr input,.fr textarea{width:100%;padding:9px 13px;border-radius:8px;border:1px solid #2e4a5a;background:#0f1923;color:#e2e8f0;font-size:.9rem}
+    .fr input:focus,.fr textarea:focus{outline:none;border-color:#059669}
+    .fr textarea{resize:vertical;min-height:52px}
+    .fr2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .fr3{display:flex;gap:12px}
+    .fr3 .fr{flex:1}
+    .btn-save{padding:9px 24px;background:#059669;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.88rem}
+    .btn-save:hover{background:#047857}
+    .saved-tag{font-size:.78rem;color:#059669;font-weight:600;margin-left:10px;opacity:0;transition:opacity .3s}
+    .saved-tag.show{opacity:1}
+    .divider{border:none;border-top:1px solid #2e4a5a;margin:18px 0}
+    .net-row{display:flex;justify-content:space-between;align-items:center;background:#0d2a1f;border-radius:8px;padding:12px 16px;margin-top:6px}
+    .net-row .lbl{font-size:.82rem;color:#6ee7b7;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+    .net-row .val{font-size:1.15rem;font-weight:700;color:#34d399}
+    .hint{font-size:.78rem;color:#64748b;margin-top:4px}
+    .note-box{background:#1a2e3a;border-radius:8px;padding:12px 16px;font-size:.82rem;color:#94a3b8;margin-top:16px;line-height:1.5}
+    .note-box a{color:#2a9d8f}
+    .discount-chip{display:inline-block;font-size:.75rem;padding:2px 8px;border-radius:4px;background:#064e3b;color:#6ee7b7;font-weight:600;margin-left:6px}
+    .cgt-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+    .cgt-summary-card{background:#0f2a1a;border-radius:8px;padding:10px 14px;text-align:center}
+    .cgt-summary-card .label{font-size:.7rem;color:#6ee7b7;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+    .cgt-summary-card .value{font-size:1.05rem;font-weight:700;color:#34d399}
+  </style>
+</head>
+<body>
+
+{% set active_tab = 'capital_gains' %}
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>Capital Gains</h1>
+  <p>Investment sale summaries for each financial year. Split disposals into short-term (&lt;12 months) and long-term (≥12 months, 50% CGT discount eligible).</p>
+</div>
+
+{% if fys %}
+  {% for fy in fys %}
+  {% set entry = data.get(fy|string, {}) %}
+  {% set is_current = (fy == current_fy) %}
+
+  {# Support both new split format and legacy gross_gains format #}
+  {% set short_term = entry.get('short_term_gains', none) %}
+  {% set long_term  = entry.get('long_term_gains',  none) %}
+  {% set use_split  = (short_term is not none) or (long_term is not none) %}
+
+  <div class="card" id="card-{{ fy }}">
+    <div class="card-title">
+      <span>FY{{ fy }} &nbsp;
+        <span class="fy-badge {{ 'current' if is_current else '' }}">{{ 'current' if is_current else 'complete' }}</span>
+      </span>
+      <span id="saved-{{ fy }}" class="saved-tag">&#10003; Saved</span>
+    </div>
+
+    {# Short-term / long-term split inputs #}
+    <div class="fr2" style="margin-bottom:12px">
+      <div class="fr">
+        <label>Short-Term Gains ($) <span style="font-size:.75rem;color:#f87171">&lt;12 months — fully taxable</span></label>
+        <input type="number" id="{{ fy }}-short" step="0.01" min="0"
+               value="{{ entry.get('short_term_gains', '') }}" placeholder="0.00"
+               oninput="recalc({{ fy }})">
+        <div class="hint">Assets held less than 12 months — no CGT discount applies.</div>
+      </div>
+      <div class="fr">
+        <label>Long-Term Gains ($) <span class="discount-chip">50% CGT discount eligible</span></label>
+        <input type="number" id="{{ fy }}-long" step="0.01" min="0"
+               value="{{ entry.get('long_term_gains', '') }}" placeholder="0.00"
+               oninput="recalc({{ fy }})">
+        <div class="hint">Assets held 12 months or more — 50% of gain is exempt.</div>
+      </div>
+    </div>
+
+    <div class="cgt-summary" id="summary-{{ fy }}">
+      <div class="cgt-summary-card">
+        <div class="label">Gross Gains</div>
+        <div class="value" id="gross-{{ fy }}">—</div>
+      </div>
+      <div class="cgt-summary-card">
+        <div class="label">50% Discount</div>
+        <div class="value" id="discount-{{ fy }}">—</div>
+      </div>
+      <div class="cgt-summary-card">
+        <div class="label">After Discount</div>
+        <div class="value" id="after-disc-{{ fy }}">—</div>
+      </div>
+    </div>
+
+    <div class="fr2">
+      <div class="fr">
+        <label>Capital Losses Applied ($)</label>
+        <input type="number" id="{{ fy }}-losses" step="0.01" min="0"
+               value="{{ entry.get('capital_losses_applied', '') }}" placeholder="0.00"
+               oninput="recalc({{ fy }})">
+        <div class="hint">Prior-year or current-year losses offset.</div>
+      </div>
+      <div class="fr">
+        <label>Carried Forward Losses ($)</label>
+        <input type="number" id="{{ fy }}-carried" step="0.01" min="0"
+               value="{{ entry.get('carried_forward_losses', '') }}" placeholder="0.00">
+        <div class="hint">Remaining losses to carry to next FY.</div>
+      </div>
+    </div>
+
+    <div class="net-row" id="net-row-{{ fy }}">
+      <span class="lbl">Net Taxable Capital Gains</span>
+      <span class="val" id="net-val-{{ fy }}">—</span>
+    </div>
+
+    <hr class="divider">
+
+    <div class="fr">
+      <label>Notes</label>
+      <textarea id="{{ fy }}-notes" placeholder="e.g. CommSec annual summary, Sharesight report…">{{ entry.get('notes', '') }}</textarea>
+    </div>
+
+    <div style="display:flex;align-items:center;margin-top:12px">
+      <button class="btn-save" onclick="saveFY({{ fy }})">Save FY{{ fy }}</button>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="card">
+    <div class="empty">No financial years found. Import transactions first, then return here to enter capital gains data.</div>
+  </div>
+{% endif %}
+
+<div class="note-box">
+  Enter the split between short-term (&lt;12 months, fully taxable) and long-term (≥12 months, 50% CGT discount) gains from your broker or tax platform (CommSec, Sharesight, etc.).
+  The 50% CGT discount is auto-calculated.
+  Figures are included on the <a href="/fy-summary">FY Summary</a> page and in the tax export package.
+  These do <strong>not</strong> affect transaction totals or the dashboard.
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function toast(msg, ok) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = ok === false ? '#c95f43' : '#059669';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function getNum(id) {
+  const el = document.getElementById(id);
+  if (!el) return 0;
+  const v = parseFloat(el.value);
+  return isNaN(v) ? 0 : v;
+}
+
+function fmt(n) {
+  return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function recalc(fy) {
+  const st   = getNum(fy + '-short');
+  const lt   = getNum(fy + '-long');
+  const disc = lt / 2;
+  const gross = st + lt;
+  const afterDisc = st + disc;   // short in full + long at 50%
+  const losses = getNum(fy + '-losses');
+  const net = afterDisc - losses;
+
+  const setEl = (id, text, color) => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = text; if (color) el.style.color = color; }
+  };
+
+  setEl('gross-' + fy, fmt(gross));
+  setEl('discount-' + fy, '(' + fmt(disc) + ')');
+  setEl('after-disc-' + fy, fmt(afterDisc));
+
+  const netEl = document.getElementById('net-val-' + fy);
+  if (netEl) {
+    netEl.textContent = fmt(net);
+    netEl.style.color = net < 0 ? '#f87171' : '#34d399';
+  }
+}
+
+function saveFY(fy) {
+  const st    = getNum(fy + '-short');
+  const lt    = getNum(fy + '-long');
+  const disc  = lt / 2;
+  const gross = st + lt;
+  const losses = getNum(fy + '-losses');
+  const net   = st + disc - losses;
+  const payload = {
+    fy:                       String(fy),
+    short_term_gains:         st,
+    long_term_gains:          lt,
+    gross_gains:              gross,
+    cgt_discount:             disc,
+    net_gains:                net,
+    capital_losses_applied:   losses,
+    carried_forward_losses:   getNum(fy + '-carried'),
+    notes:                    (document.getElementById(fy + '-notes')?.value || '').trim(),
+  };
+
+  fetch('/api/capital-gains', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      toast('FY' + fy + ' saved');
+      const tag = document.getElementById('saved-' + fy);
+      if (tag) { tag.classList.add('show'); setTimeout(() => tag.classList.remove('show'), 2500); }
+    } else {
+      toast(d.error || 'Error saving', false);
+    }
+  })
+  .catch(() => toast('Network error', false));
+}
+
+// Initialise all FY calculations on load
+document.querySelectorAll('[id$="-short"],[id$="-long"],[id$="-losses"]').forEach(el => {
+  const parts = el.id.split('-');
+  if (parts.length >= 2) {
+    const fy = parseInt(parts[0]);
+    if (!isNaN(fy)) recalc(fy);
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Account Reconciliation — Personal Finance Analyser</title>
+  <style>
+    .rec-table{width:100%;border-collapse:collapse;font-size:.84rem}
+    .rec-table th{text-align:left;padding:9px 12px;font-size:.72rem;color:var(--text-2);
+                  font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+                  border-bottom:2px solid var(--border);white-space:nowrap}
+    .rec-table th.r,.rec-table td.r{text-align:right}
+    .rec-table td{padding:10px 12px;border-bottom:1px solid var(--border-2);vertical-align:middle}
+    .rec-table tr:last-child td{border-bottom:none}
+    .rec-table tr:hover td{background:rgba(42,157,143,.04)}
+    .status-ok{color:#22c55e;font-weight:700}
+    .status-warning{color:#f59e0b;font-weight:700}
+    .status-error{color:#ef4444;font-weight:700}
+    .status-no_snapshot{color:#64748b}
+    .status-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;
+                 border-radius:10px;font-size:.75rem;font-weight:700;white-space:nowrap}
+    .chip-ok{background:rgba(34,197,94,.12);color:#22c55e}
+    .chip-warning{background:rgba(245,158,11,.12);color:#f59e0b}
+    .chip-error{background:rgba(239,68,68,.12);color:#ef4444}
+    .chip-no_snapshot{background:rgba(100,116,139,.12);color:#64748b}
+    .variance-ok{color:#22c55e}
+    .variance-warn{color:#f59e0b}
+    .variance-err{color:#ef4444}
+    .help-box{margin-bottom:20px}
+  </style>
+</head>
+<body>
+
+{% set active_section = 'data' %}
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>Account Reconciliation</h1>
+  <p>Compare the running balance in the database against the closing balance captured from statement imports.</p>
+</div>
+
+<details class="help-box">
+  <summary style="font-size:.82rem;color:var(--text-2);cursor:pointer">How reconciliation works</summary>
+  <div style="margin-top:10px;font-size:.82rem;color:var(--text-2);line-height:1.7;padding:0 4px">
+    <p>For each account, PFA computes the sum of all transactions in the database up to the date of the most recent balance snapshot. It then compares this to the closing balance recorded when the statement was imported.</p>
+    <p><strong>OK</strong> — variance &lt; $0.02 (rounding only).<br>
+    <strong>Warning</strong> — variance between $0.02 and $10: minor gap, possibly a missed small transaction.<br>
+    <strong>Error</strong> — variance over $10: a transaction may be missing or duplicated.<br>
+    <strong>No snapshot</strong> — no closing balance was captured for this account (ANZ Plus and Revolut statements provide this; others do not).</p>
+  </div>
+</details>
+
+<div class="card">
+  {% if results %}
+  <div style="overflow-x:auto">
+  <table class="rec-table">
+    <thead>
+      <tr>
+        <th>Account</th>
+        <th class="r">Snapshot balance</th>
+        <th style="text-align:center">Snapshot date</th>
+        <th class="r">DB balance (as of)</th>
+        <th class="r">Variance</th>
+        <th style="text-align:center">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in results %}
+    <tr>
+      <td>
+        <div style="font-weight:600;color:var(--text-1)">{{ r.friendly_name }}</div>
+        {% if r.friendly_name != r.account %}
+          <div style="font-size:.74rem;color:var(--text-2)">{{ r.account }}</div>
+        {% endif %}
+      </td>
+      <td class="r">
+        {% if r.snap_balance is not none %}
+          <span style="font-weight:600">${{ "{:,.2f}".format(r.snap_balance) }}</span>
+        {% else %}
+          <span style="color:var(--text-2)">—</span>
+        {% endif %}
+      </td>
+      <td style="text-align:center;color:var(--text-2);font-size:.82rem">
+        {{ r.snap_date or '—' }}
+      </td>
+      <td class="r">
+        <span style="font-weight:600">${{ "{:,.2f}".format(r.db_balance) }}</span>
+      </td>
+      <td class="r">
+        {% if r.variance is not none %}
+          <span class="{{ 'variance-ok' if r.status == 'ok' else ('variance-warn' if r.status == 'warning' else 'variance-err') }}">
+            {% if r.variance >= 0 %}+{% endif %}${{ "{:,.2f}".format(r.variance) }}
+          </span>
+        {% else %}
+          <span style="color:var(--text-2)">—</span>
+        {% endif %}
+      </td>
+      <td style="text-align:center">
+        {% if r.status == 'ok' %}
+          <span class="status-chip chip-ok">&#10003; Reconciled</span>
+        {% elif r.status == 'warning' %}
+          <span class="status-chip chip-warning">&#9888; Minor gap</span>
+        {% elif r.status == 'error' %}
+          <span class="status-chip chip-error">&#10005; Discrepancy</span>
+        {% else %}
+          <span class="status-chip chip-no_snapshot">No snapshot</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div style="padding:40px;text-align:center;color:var(--text-2);font-size:.9rem">
+    No accounts found. Import a statement first.
+  </div>
+  {% endif %}
+</div>
+
+<div style="font-size:.78rem;color:var(--text-2);margin-top:12px;text-align:right">
+  Balance snapshots are captured automatically from ANZ Plus PDF and Revolut CSV statements during import.
+</div>
+
+</body>
+</html>

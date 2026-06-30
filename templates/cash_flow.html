@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Cash Flow Projection — Personal Finance Analyser</title>
+  <style>
+    .controls-row{display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+    .toggle-group{display:flex;gap:6px;align-items:center}
+    .toggle-lbl{font-size:.78rem;color:#94a3b8;font-weight:600;margin-right:2px;white-space:nowrap}
+    .tog-btn{padding:6px 16px;border-radius:8px;border:1px solid #2e4a5a;background:transparent;color:#94a3b8;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s}
+    .tog-btn.active{background:#2A9D8F;color:white;border-color:#2A9D8F}
+    .tog-btn:hover:not(.active){border-color:#2A9D8F;color:#2A9D8F}
+    .tog-btn.opt.active{background:#22c55e;border-color:#22c55e}
+    .tog-btn.base.active{background:#2A9D8F;border-color:#2A9D8F}
+    .tog-btn.pess.active{background:#f97316;border-color:#f97316}
+    .controls-divider{width:1px;height:28px;background:#2e4a5a;flex-shrink:0}
+    .summary-row{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap}
+    .summary-card{background:#1d3540;border-radius:12px;padding:18px 24px;flex:1;min-width:180px}
+    .summary-card .lbl{font-size:.72rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+    .summary-card .val{font-size:1.4rem;font-weight:700}
+    .summary-card .sub{font-size:.78rem;color:#64748b;margin-top:4px}
+    .card-title{font-size:1rem;font-weight:700;color:#e2e8f0;margin-bottom:16px}
+    .chart-wrap{min-height:280px}
+    .tl-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid #1a2e3a;gap:10px;font-size:.87rem}
+    .tl-row:last-child{border-bottom:none}
+    .tl-date{width:80px;font-size:.82rem;color:#94a3b8;flex-shrink:0}
+    .tl-name{flex:1;font-weight:500}
+    .tl-cat{font-size:.73rem;color:#94a3b8;background:#0f1923;padding:2px 8px;border-radius:8px;white-space:nowrap}
+    .tl-freq{font-size:.72rem;color:#5a8a80;white-space:nowrap}
+    .tl-amt{text-align:right;font-weight:600;white-space:nowrap;min-width:80px;color:#f87171}
+    .tl-row.manual-row .tl-amt{color:#fb923c}
+    .tl-del{background:none;border:none;color:#4a6070;cursor:pointer;font-size:1rem;padding:0 4px;line-height:1}
+    .tl-del:hover{color:#f87171}
+    .soon{color:#f59e0b}
+    .note-box{background:#1a2e3a;border-radius:8px;padding:12px 16px;font-size:.82rem;color:#94a3b8;margin-top:16px;line-height:1.5}
+    .note-box a{color:#2a9d8f}
+    .section-hdr{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#2a9d8f;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #2e4a5a;display:flex;justify-content:space-between;align-items:center}
+    .badge-info{font-size:.7rem;padding:2px 8px;border-radius:6px;background:#0c4a6e22;color:#7dd3fc;border:1px solid #0c4a6e;font-weight:600}
+    .add-entry-form{display:none;background:#1a2e3a;border-radius:10px;padding:16px;margin-top:12px;display:none}
+    .add-entry-form.open{display:block}
+    .add-form-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+    .add-form-row input,.add-form-row select{background:#0f1923;border:1px solid #2e4a5a;color:#e2e8f0;border-radius:7px;padding:7px 12px;font-size:.83rem;flex:1;min-width:120px}
+    .add-form-row input:focus,.add-form-row select:focus{outline:none;border-color:#2a9d8f}
+    .btn-add-save{background:#2A9D8F;color:white;border:none;border-radius:7px;padding:7px 18px;font-size:.83rem;font-weight:600;cursor:pointer}
+    .btn-add-save:hover{background:#238f82}
+    .btn-add-cancel{background:transparent;border:1px solid #2e4a5a;color:#94a3b8;border-radius:7px;padding:7px 14px;font-size:.83rem;cursor:pointer}
+    .scenario-info{font-size:.75rem;color:#64748b;margin-left:8px}
+  </style>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+
+{% set active_tab = 'cash_flow' %}
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>Cash Flow Projection</h1>
+  <p>Forward-looking view based on committed payments, one-off entries, and variable spend scenarios.</p>
+</div>
+
+<!-- Controls: horizon + scenario -->
+<div class="controls-row">
+  <div class="toggle-group">
+    <span class="toggle-lbl">Horizon:</span>
+    <button class="tog-btn active" id="tog-30"  onclick="setHorizon(30)">30 days</button>
+    <button class="tog-btn"        id="tog-60"  onclick="setHorizon(60)">60 days</button>
+    <button class="tog-btn"        id="tog-90"  onclick="setHorizon(90)">90 days</button>
+    <button class="tog-btn"        id="tog-365" onclick="setHorizon(365)">12 months</button>
+  </div>
+  <div class="controls-divider"></div>
+  <div class="toggle-group">
+    <span class="toggle-lbl">Scenario:</span>
+    <button class="tog-btn opt"  id="scen-opt"  onclick="setScenario('opt')"  title="Based on your lowest-spend quarter">Optimistic</button>
+    <button class="tog-btn base active" id="scen-base" onclick="setScenario('base')" title="90-day average variable spend">Baseline</button>
+    <button class="tog-btn pess" id="scen-pess" onclick="setScenario('pess')" title="Based on your highest-spend quarter">Pessimistic</button>
+    <span class="scenario-info" id="scen-info">${{ "{:,.2f}".format(daily_avg) }}/day</span>
+  </div>
+</div>
+
+<!-- Summary cards -->
+<div class="summary-row">
+  <div class="summary-card">
+    <div class="lbl">Committed Outflows</div>
+    <div class="val" id="card-committed" style="color:#f87171">${{ "{:,.0f}".format(committed_30) }}</div>
+    <div class="sub" id="card-committed-sub">{{ upcoming | selectattr("projected_date", "le", (today_str[:7] + "-30")) | list | length }} payment(s) scheduled</div>
+  </div>
+  <div class="summary-card">
+    <div class="lbl">One-off Entries</div>
+    <div class="val" id="card-manual" style="color:#fb923c">${{ "{:,.0f}".format(manual_30) }}</div>
+    <div class="sub" id="card-manual-sub">{{ manual_entries | selectattr("date", "le", (today_str[:7] + "-30")) | list | length }} planned expense(s)</div>
+  </div>
+  <div class="summary-card">
+    <div class="lbl">Est. Variable Spend</div>
+    <div class="val" id="card-variable" style="color:#e2e8f0">${{ "{:,.0f}".format(variable_30) }}</div>
+    <div class="sub" id="card-variable-sub">${{ "{:,.2f}".format(daily_avg) }}/day (baseline)</div>
+  </div>
+  <div class="summary-card">
+    <div class="lbl">Total Projected</div>
+    <div class="val" id="card-total" style="color:#e2e8f0">${{ "{:,.0f}".format(committed_30 + manual_30 + variable_30) }}</div>
+    <div class="sub" id="card-total-sub">over 30 days</div>
+  </div>
+  <div class="summary-card">
+    <div class="lbl">Monthly Committed</div>
+    <div class="val" style="color:#94a3b8">${{ "{:,.0f}".format(monthly_total) }}</div>
+    <div class="sub">recurring obligations/month</div>
+  </div>
+</div>
+
+<!-- Plotly chart -->
+<div class="card">
+  <div class="card-title">Cumulative Projected Spend</div>
+  <div class="chart-wrap" id="cf-chart"></div>
+</div>
+
+<!-- Committed payments -->
+<div class="card">
+  <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+    <span>Upcoming Committed Payments</span>
+    <span class="badge-info" id="timeline-count">{{ upcoming | length }} total</span>
+  </div>
+  {% if upcoming %}
+  <div id="timeline-list">
+    {% for item in upcoming %}
+    <div class="tl-row" data-date="{{ item.projected_date }}">
+      <div class="tl-date">{{ item.projected_date[8:] }} {{ ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][item.projected_date[5:7]|int - 1] }}</div>
+      <div class="tl-name">{{ item.name }}</div>
+      <div class="tl-cat">{{ item.category }}</div>
+      <div class="tl-freq">{{ freq_labels.get(item.frequency, item.frequency) }}</div>
+      <div class="tl-amt">${{ "{:,.2f}".format(item.amount) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">No upcoming commitments found. Add items on the <a href="/commitments" style="color:#2a9d8f">Commitments</a> page.</div>
+  {% endif %}
+</div>
+
+<!-- One-off manual entries -->
+<div class="card">
+  <div class="section-hdr">
+    <span>One-off Planned Expenses</span>
+    <button class="tog-btn" style="font-size:.75rem;padding:4px 12px" onclick="toggleAddForm()">+ Add Entry</button>
+  </div>
+
+  <div class="add-entry-form" id="add-entry-form">
+    <div class="add-form-row">
+      <input type="text"   id="ae-name"   placeholder="Description (e.g. Car rego)" />
+      <input type="number" id="ae-amount" placeholder="Amount ($)" min="0.01" step="0.01" />
+      <input type="date"   id="ae-date"   />
+      <select id="ae-cat">
+        <option>Transport</option><option>Travel</option><option>Health</option>
+        <option>Home</option><option>Electronics</option><option>Education</option>
+        <option>Clothing</option><option>Entertainment</option><option>Other</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-add-save" onclick="saveEntry()">Save</button>
+      <button class="btn-add-cancel" onclick="toggleAddForm()">Cancel</button>
+    </div>
+  </div>
+
+  <div id="manual-list">
+    {% if manual_entries %}
+      {% for e in manual_entries %}
+      <div class="tl-row manual-row" data-date="{{ e.date }}" data-entry-id="{{ e.id }}">
+        <div class="tl-date">{{ e.date[8:] }} {{ ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][e.date[5:7]|int - 1] }}</div>
+        <div class="tl-name">{{ e.name }}</div>
+        <div class="tl-cat">{{ e.category }}</div>
+        <div class="tl-freq" style="color:#64748b">one-off</div>
+        <div class="tl-amt">${{ "{:,.2f}".format(e.amount) }}</div>
+        <button class="tl-del" onclick="deleteEntry('{{ e.id }}', this)" title="Remove">&#10005;</button>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="empty" id="manual-empty">No one-off entries yet. Use <em>Add Entry</em> to plan known future expenses like holidays or registration fees.</div>
+    {% endif %}
+  </div>
+
+  <div class="note-box" style="margin-top:14px">
+    <strong>Variable spend estimate</strong> uses your average daily non-committed spend over the last 90 days (${{ "{:,.2f}".format(daily_avg) }}/day baseline, ${{ "{:,.2f}".format(daily_opt) }}/day optimistic, ${{ "{:,.2f}".format(daily_pess) }}/day pessimistic).
+    Excludes income, transfers, investments, and commitment merchants to avoid double-counting.
+  </div>
+</div>
+
+<script>
+var CHART_DATES      = {{ chart_dates|safe }};
+var CHART_COMMITTED  = {{ chart_committed|safe }};
+var CHART_VARIABLE   = {{ chart_variable|safe }};
+var CHART_VAR_OPT    = {{ chart_variable_opt|safe }};
+var CHART_VAR_PESS   = {{ chart_variable_pess|safe }};
+var CHART_MANUAL     = {{ chart_manual|safe }};
+var TODAY            = "{{ today_str }}";
+
+var COMMITTED = {30: {{ committed_30 }}, 60: {{ committed_60 }}, 90: {{ committed_90 }}, 365: {{ committed_365 }}};
+var MANUAL    = {30: {{ manual_30 }},    60: {{ manual_60 }},    90: {{ manual_90 }},    365: {{ manual_365 }}};
+var VARIABLE  = {
+  base: {30: {{ variable_30 }},     60: {{ variable_60 }},     90: {{ variable_90 }},     365: {{ variable_365 }}},
+  opt:  {30: {{ variable_opt_30 }}, 60: {{ variable_opt_60 }}, 90: {{ variable_opt_90 }}, 365: {{ variable_opt_365 }}},
+  pess: {30: {{ variable_pess_30 }},60: {{ variable_pess_60 }},90: {{ variable_pess_90 }},365: {{ variable_pess_365 }}},
+};
+var DAILY = {
+  opt:  {{ daily_opt }},
+  base: {{ daily_avg }},
+  pess: {{ daily_pess }},
+};
+var SCENARIO_LABEL = {opt: 'optimistic', base: 'baseline', pess: 'pessimistic'};
+
+var currentHorizon  = 30;
+var currentScenario = 'base';
+
+function setHorizon(days) {
+  currentHorizon = days;
+  [30, 60, 90, 365].forEach(function(d) {
+    document.getElementById('tog-' + d).classList.toggle('active', d === days);
+  });
+  _refresh();
+}
+
+function setScenario(s) {
+  currentScenario = s;
+  ['opt', 'base', 'pess'].forEach(function(k) {
+    document.getElementById('scen-' + k).classList.toggle('active', k === s);
+  });
+  var info = document.getElementById('scen-info');
+  if (info) info.textContent = '$' + DAILY[s].toFixed(2) + '/day (' + SCENARIO_LABEL[s] + ')';
+  _refresh();
+}
+
+function _refresh() {
+  _updateCards();
+  _updateChart();
+  _filterTimeline();
+}
+
+function fmt(n) {
+  return '$' + Math.round(n).toLocaleString('en-AU');
+}
+
+function addDays(isoStr, days) {
+  var d = new Date(isoStr);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function _updateCards() {
+  var days = currentHorizon, s = currentScenario;
+  var c = COMMITTED[days], m = MANUAL[days], v = VARIABLE[s][days];
+  document.getElementById('card-committed').textContent = fmt(c);
+  document.getElementById('card-manual').textContent    = fmt(m);
+  document.getElementById('card-variable').textContent  = fmt(v);
+  document.getElementById('card-variable-sub').textContent = '$' + DAILY[s].toFixed(2) + '/day (' + SCENARIO_LABEL[s] + ')';
+  document.getElementById('card-total').textContent     = fmt(c + m + v);
+  var label = days === 365 ? '12 months' : days + ' days';
+  document.getElementById('card-total-sub').textContent = 'over ' + label;
+  // update committed count
+  var cutoff = addDays(TODAY, days);
+  var cRows = document.querySelectorAll('#timeline-list .tl-row[data-date]');
+  var n = 0; cRows.forEach(function(r) { if (r.dataset.date <= cutoff) n++; });
+  document.getElementById('card-committed-sub').textContent = n + ' payment(s) scheduled';
+  // update manual count
+  var mRows = document.querySelectorAll('#manual-list .tl-row[data-date]');
+  var mn = 0; mRows.forEach(function(r) { if (r.dataset.date <= cutoff) mn++; });
+  document.getElementById('card-manual-sub').textContent = mn + ' planned expense(s)';
+}
+
+function _filterTimeline() {
+  var cutoff = addDays(TODAY, currentHorizon);
+  // committed
+  var cRows = document.querySelectorAll('#timeline-list .tl-row');
+  var cv = 0;
+  cRows.forEach(function(r) {
+    var show = r.dataset.date <= cutoff;
+    r.style.display = show ? '' : 'none';
+    if (show) cv++;
+  });
+  document.getElementById('timeline-count').textContent = cv + ' payment(s)';
+  // manual
+  var mRows = document.querySelectorAll('#manual-list .tl-row');
+  mRows.forEach(function(r) {
+    r.style.display = r.dataset.date <= cutoff ? '' : 'none';
+  });
+}
+
+function _updateChart() {
+  var n = currentHorizon + 1;
+  var dates = CHART_DATES.slice(0, n);
+  var committed = CHART_COMMITTED.slice(0, n);
+  var manual    = CHART_MANUAL.slice(0, n);
+  var s = currentScenario;
+  var varArr = s === 'opt' ? CHART_VAR_OPT.slice(0, n)
+             : s === 'pess' ? CHART_VAR_PESS.slice(0, n)
+             : CHART_VARIABLE.slice(0, n);
+  var varColor = s === 'opt' ? '#22c55e' : s === 'pess' ? '#f97316' : '#fb923c';
+
+  var combined = committed.map(function(c, i) { return c + manual[i] + varArr[i]; });
+
+  var layout = {
+    paper_bgcolor: '#1d3540',
+    plot_bgcolor:  '#0f1923',
+    font: { color: '#94a3b8', size: 11 },
+    margin: { l: 60, r: 20, t: 20, b: 40 },
+    xaxis: { gridcolor: '#2e4a5a', tickformat: '%d %b', tickangle: -30 },
+    yaxis: { gridcolor: '#2e4a5a', tickprefix: '$', tickformat: ',.0f' },
+    legend: { orientation: 'h', y: 1.08, font: { size: 11 } },
+    hovermode: 'x unified',
+  };
+
+  var traces = [
+    {
+      x: dates, y: varArr, name: 'Variable (' + SCENARIO_LABEL[s] + ')', mode: 'lines',
+      line: { color: varColor, width: 1.5, dash: 'dot' },
+      fill: 'tozeroy', fillcolor: varColor.replace(')', ',0.07)').replace('rgb', 'rgba'),
+    },
+    {
+      x: dates, y: committed, name: 'Committed', mode: 'lines',
+      line: { color: '#f87171', width: 2 },
+      fill: 'tozeroy', fillcolor: 'rgba(248,113,113,0.10)',
+    },
+  ];
+  if (manual.some(function(v) { return v > 0; })) {
+    traces.push({
+      x: dates, y: manual, name: 'One-off entries', mode: 'lines',
+      line: { color: '#fb923c', width: 1.5, dash: 'dash' },
+    });
+  }
+  traces.push({
+    x: dates, y: combined, name: 'Total', mode: 'lines',
+    line: { color: '#e2e8f0', width: 2.5 },
+  });
+
+  Plotly.react('cf-chart', traces, layout, {responsive: true, displayModeBar: false});
+}
+
+// Manual entry form
+function toggleAddForm() {
+  var f = document.getElementById('add-entry-form');
+  if (!f) return;
+  f.classList.toggle('open');
+  if (f.classList.contains('open')) {
+    // Set default date to 30 days from today
+    var d = new Date(); d.setDate(d.getDate() + 30);
+    document.getElementById('ae-date').value = d.toISOString().slice(0, 10);
+  }
+}
+
+function saveEntry() {
+  var name   = document.getElementById('ae-name').value.trim();
+  var amount = parseFloat(document.getElementById('ae-amount').value);
+  var date   = document.getElementById('ae-date').value;
+  var cat    = document.getElementById('ae-cat').value;
+  if (!name || !date || !(amount > 0)) { alert('Please fill in name, amount, and date.'); return; }
+  fetch('/api/cashflow-entries', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: name, amount: amount, date: date, category: cat}),
+  }).then(function(r) { return r.json(); }).then(function() {
+    location.reload();
+  }).catch(function() { alert('Save failed.'); });
+}
+
+function deleteEntry(id, btn) {
+  if (!confirm('Remove this entry?')) return;
+  fetch('/api/cashflow-entries/' + id, {method: 'DELETE'})
+    .then(function() {
+      var row = btn.closest('.tl-row');
+      if (row) row.remove();
+      var empty = document.getElementById('manual-empty');
+      if (empty && !document.querySelector('#manual-list .tl-row')) {
+        empty.style.display = '';
+      }
+    }).catch(function() { alert('Delete failed.'); });
+}
+
+// Initialise
+_updateChart();
+_filterTimeline();
+_updateCards();
+</script>
+</body>
+</html>

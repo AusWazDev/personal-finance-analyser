@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Review{% if has_data %}: {{ num_groups }} merchants ({{ num_txns }} transactions){% endif %} — Personal Finance Analyser</title>
+  <style>
+    .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+    .toolbar input[type=text]{padding:8px 12px;border:1px solid var(--border);border-radius:8px;
+                              font-size:.9rem;width:280px;background:var(--surface-1);color:var(--text-1)}
+    .btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600}
+    .count{font-size:.85rem;color:var(--text-2);margin-left:auto}
+    .paypal-hint{display:block;font-size:.75rem;color:#7c4d00;background:#fff3cd;
+                 border:1px solid #ffc107;border-radius:4px;padding:2px 5px;margin-top:2px;line-height:1.4}
+    .card{background:var(--surface-1);border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.07);overflow:hidden}
+    table{width:100%;border-collapse:collapse;font-size:.88rem}
+    thead tr{background:#264653;color:white}
+    th{padding:10px 12px;text-align:left;font-weight:600;white-space:nowrap}
+    td{padding:9px 12px;border-bottom:1px solid var(--border-2);vertical-align:middle}
+    .grp-row:hover td{background:var(--surface-2)}
+    .cnt-cell{width:52px;text-align:center}
+    .cnt-badge{display:inline-block;padding:3px 9px;border-radius:12px;color:white;
+               font-size:.78rem;font-weight:700;white-space:nowrap}
+    .g-desc{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+    .g-dates{white-space:nowrap;color:var(--text-2);font-size:.82rem;width:130px}
+    .g-total{white-space:nowrap;font-weight:600;color:var(--text-2);width:100px;text-align:right}
+    select.cat-sel{padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.85rem;
+                   width:160px;background:var(--surface-1);color:var(--text-1)}
+    select.sub-sel{padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.85rem;
+                   width:140px;color:var(--text-2);background:var(--surface-1)}
+    .expand-btn{padding:4px 8px;background:none;border:1px solid var(--border);border-radius:5px;
+                cursor:pointer;color:var(--text-2);font-size:.8rem}
+    .expand-btn:hover{background:var(--surface-2)}
+    .grp-detail td{padding:0;border-bottom:none}
+    .det-row:hover td{background:var(--surface-2)}
+    .note-inp{width:180px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;
+              font-size:.8rem;color:var(--text-1);background:var(--surface-1)}
+    .note-inp:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(42,157,143,.15)}
+    .save-status{font-size:.75rem;min-width:28px;display:inline-block;text-align:center}
+    .saved-banner{display:none;background:#00BB77;color:white;padding:12px 20px;
+                  border-radius:8px;margin-bottom:16px;font-weight:600}
+    .review-empty{background:var(--surface-1);border-radius:12px;padding:40px 32px;
+                  text-align:center;color:var(--text-2)}
+  </style>
+</head>
+<body>
+
+{% set active_section = 'data' %}
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  {% if has_data %}
+    <h1>Review: {{ num_groups }} merchants &nbsp;<span style="font-size:1rem;opacity:.75">({{ num_txns }} transactions)</span></h1>
+    <p>Transactions auto-categorised as <em>Miscellaneous</em>, grouped by merchant. Assign a category to update the entire group at once.</p>
+  {% else %}
+    <h1>Review</h1>
+    <p>No Miscellaneous transactions to review.</p>
+  {% endif %}
+</div>
+
+{% if not has_data %}
+  <div class="review-empty">All transactions have been categorised. Import new statements to add more.</div>
+{% else %}
+<div class="saved-banner" id="banner"></div>
+<div class="toolbar">
+  <input type="text" id="filter" placeholder="Filter by merchant description...">
+  <button class="btn" onclick="seedRules(this)"
+          style="background:#f39c12;color:white" title="Auto-add merchant rules from all categorised history">&#9889; Seed Rules from History</button>
+  <span class="count" id="count">{{ num_groups }} merchants</span>
+  <button class="btn" onclick="openHistory()" style="background:#457B9D;color:white">&#128337; History</button>
+</div>
+
+<!-- History / Undo modal -->
+<div id="history-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center"
+     onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:white;border-radius:14px;padding:28px 32px;width:680px;max-width:95vw;max-height:80vh;overflow-y:auto">
+    <h3 style="margin:0 0 16px;color:#264653">Override History</h3>
+    <p style="margin:0 0 16px;font-size:.85rem;color:#555">Recent changes — click Undo to restore previous values.</p>
+    <div id="history-list"><p style="color:#888">Loading…</p></div>
+    <div style="margin-top:16px;text-align:right">
+      <button onclick="document.getElementById('history-modal').style.display='none'"
+              style="padding:8px 20px;background:#264653;color:white;border:none;border-radius:8px;cursor:pointer;font-size:.9rem">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+<table>
+<thead><tr>
+  <th style="width:52px;text-align:center">#</th>
+  <th>Merchant / Description</th>
+  <th style="width:130px">Date range</th>
+  <th style="width:100px;text-align:right">Total</th>
+  <th style="width:160px">Assign category</th>
+  <th style="width:140px">Sub-category</th>
+  <th style="width:36px"></th>
+  <th style="width:52px"></th>
+</tr></thead>
+<tbody id="tbody">
+{{ rows_html | safe }}
+</tbody>
+</table>
+<div id="review-pagination" style="display:flex;align-items:center;gap:12px;padding:12px 16px;font-size:.88rem;color:#64748b"></div>
+</div>
+
+<script>
+const filterEl = document.getElementById('filter');
+const countEl  = document.getElementById('count');
+
+var SUBCATS = {};
+fetch('/api/subcats').then(r => r.json()).then(d => {
+  SUBCATS = d;
+  document.querySelectorAll('#tbody .grp-row').forEach(tr => {
+    const cat = tr.querySelector('.cat-sel').value;
+    if (cat) _refreshSubSel(tr.querySelector('.sub-sel'), cat, '');
+  });
+});
+
+function _refreshSubSel(sel, cat, current) {
+  const list = SUBCATS[cat] || [];
+  const known = current && !list.includes(current) ? [current, ...list] : list;
+  sel.innerHTML = '<option value="">— None —</option>' +
+    known.map(s => `<option value="${s}"${s === current ? ' selected' : ''}>${s}</option>`).join('');
+}
+
+function onCatChange(catSel) {
+  const tr = catSel.closest('.grp-row');
+  const subSel = tr.querySelector('.sub-sel');
+  _refreshSubSel(subSel, catSel.value, '');
+  autoSaveGroup(catSel);
+}
+
+var _REVIEW_PAGE = 50;
+var _reviewPage  = 1;
+var _allGrpRows  = [];
+
+function _buildRowList() {
+  _allGrpRows = [];
+  document.querySelectorAll('#tbody .grp-row').forEach(tr => _allGrpRows.push(tr));
+}
+
+function _renderReviewPage() {
+  const q = filterEl.value.toLowerCase();
+  const matched = _allGrpRows.filter(tr => !q || tr.dataset.desc.toLowerCase().includes(q));
+  const total = matched.length;
+  const totalPages = Math.max(1, Math.ceil(total / _REVIEW_PAGE));
+  _reviewPage = Math.min(_reviewPage, totalPages);
+  const start = (_reviewPage - 1) * _REVIEW_PAGE;
+
+  _allGrpRows.forEach(tr => {
+    const det = tr.nextElementSibling;
+    tr.style.display = 'none';
+    if (det && det.classList.contains('grp-detail')) det.style.display = 'none';
+  });
+  matched.slice(start, start + _REVIEW_PAGE).forEach(tr => { tr.style.display = ''; });
+
+  countEl.textContent = total + ' merchants' +
+    (totalPages > 1 ? ' — page ' + _reviewPage + ' of ' + totalPages : '');
+
+  const pag = document.getElementById('review-pagination');
+  if (totalPages > 1) {
+    pag.innerHTML =
+      '<button onclick="_goReviewPage(' + (_reviewPage-1) + ')" ' + (_reviewPage<=1?'disabled':'') +
+        ' style="padding:4px 12px;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer">&#8592; Prev</button>' +
+      '<span style="color:#64748b;font-size:.88rem">Page ' + _reviewPage + ' of ' + totalPages + ' (' + total + ' merchants)</span>' +
+      '<button onclick="_goReviewPage(' + (_reviewPage+1) + ')" ' + (_reviewPage>=totalPages?'disabled':'') +
+        ' style="padding:4px 12px;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer">Next &#8594;</button>';
+  } else { pag.innerHTML = ''; }
+}
+
+function _goReviewPage(p) { _reviewPage = p; _renderReviewPage(); }
+
+function filterGroups() { _reviewPage = 1; _renderReviewPage(); }
+filterEl.addEventListener('input', filterGroups);
+
+document.addEventListener('DOMContentLoaded', function() {
+  _buildRowList();
+  _renderReviewPage();
+});
+
+function toggleGroup(btn) {
+  const grpRow = btn.closest('.grp-row');
+  const detRow = grpRow.nextElementSibling;
+  if (!detRow || !detRow.classList.contains('grp-detail')) return;
+  const opening = detRow.style.display === 'none';
+  detRow.style.display = opening ? '' : 'none';
+  btn.innerHTML = opening ? '&#9660;' : '&#9658;';
+}
+
+const _noteTimers = {};
+
+function _setStatus(tr, msg, ok) {
+  const sp = tr.querySelector('.save-status');
+  if (!sp) return;
+  sp.textContent = msg;
+  sp.style.color = ok ? '#22a86e' : '#E63946';
+}
+
+function autoSaveGroup(sel) {
+  const tr  = sel.closest('.grp-row');
+  const cat = tr.querySelector('.cat-sel').value;
+  const sub = tr.querySelector('.sub-sel').value;
+  if (!cat) return;
+  const desc   = tr.dataset.desc;
+  const amount = parseFloat(tr.dataset.amount);
+  const ids    = JSON.parse(tr.dataset.txnids.replace(/&quot;/g, '"'));
+  _setStatus(tr, '…', true);
+
+  fetch('/api/apply-override', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify([{
+      txn_id: ids[0], category: cat, sub_category: sub,
+      apply_to_all: true, description: desc, amount: amount
+    }])
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      _setStatus(tr, '✓', true);
+      tr.style.opacity = '0.4';
+      const det = tr.nextElementSibling;
+      if (det) det.style.display = 'none';
+      document.getElementById('banner').textContent =
+        'Saved ' + (d.master_updated || ids.length) + ' transactions. Reports refresh automatically on next import.';
+      document.getElementById('banner').style.display = 'block';
+    } else { _setStatus(tr, '✗', false); }
+  })
+  .catch(() => _setStatus(tr, '✗', false));
+}
+
+function scheduleNoteSave(inp) {
+  const tr    = inp.closest('tr');
+  const txnId = tr.dataset.txnid;
+  clearTimeout(_noteTimers[txnId]);
+  _setStatus(tr, '…', true);
+  _noteTimers[txnId] = setTimeout(() => {
+    fetch('/api/save-note', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ txn_id: txnId, note: inp.value.trim() })
+    }).then(r => r.json())
+      .then(d => _setStatus(tr, d.ok ? '✓' : '✗', !!d.ok))
+      .catch(() => _setStatus(tr, '✗', false));
+  }, 600);
+}
+
+function seedRules(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Seeding…';
+  fetch('/api/seed-merchant-rules', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ threshold: 0.8, min_count: 2 })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      const msg = d.added + ' merchant rule(s) added, ' + d.backfilled + ' transaction(s) updated.';
+      document.getElementById('banner').textContent = msg + (d.backfilled ? ' Reports refresh automatically on next import.' : '');
+      document.getElementById('banner').style.display = 'block';
+      btn.textContent = d.added ? '✓ ' + d.added + ' rules added' : '✓ No new rules found';
+    } else {
+      btn.textContent = '✗ Error';
+      alert('Seed failed: ' + (d.error || 'unknown'));
+    }
+    btn.disabled = false;
+  })
+  .catch(e => { btn.textContent = '✗ Error'; btn.disabled = false; alert(e); });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function openHistory() {
+  const modal = document.getElementById('history-modal');
+  const list  = document.getElementById('history-list');
+  modal.style.display = 'flex';
+  list.innerHTML = '<p style="color:#888">Loading…</p>';
+  fetch('/api/override-history?limit=15')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok || !data.batches || !data.batches.length) {
+        list.innerHTML = '<p style="color:#888;padding:8px 0">No override history yet.</p>';
+        return;
+      }
+      list.innerHTML = data.batches.map(b => `
+        <div style="border:1px solid #eef;border-radius:8px;padding:12px 16px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
+            <strong style="font-size:.88rem">${escHtml(b.summary)}</strong>
+            <span style="font-size:.75rem;color:#888;white-space:nowrap">${(b.applied_at||b.timestamp||'').replace('T',' ').slice(0,16)}</span>
+          </div>
+          <div style="font-size:.8rem;color:#777;margin-bottom:8px">${b.changes.length} change(s)</div>
+          <button onclick="undoBatch('${b.batch_id}',this)"
+                  style="padding:5px 14px;background:#E63946;color:white;border:none;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:600">
+            &#x21A9; Undo
+          </button>
+        </div>`).join('');
+    })
+    .catch(e => { list.innerHTML = '<p style="color:#E63946">Error: ' + e + '</p>'; });
+}
+
+function undoBatch(batchId, btn) {
+  if (!confirm('Undo this batch? This will restore the previous categories/notes.')) return;
+  btn.disabled = true; btn.textContent = 'Undoing…';
+  fetch('/api/undo-override', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({batch_id: batchId})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      btn.textContent = '✓ Undone'; btn.style.background = '#888';
+      document.getElementById('banner').textContent =
+        'Undone (' + data.undone + ' row(s) restored). Reports refresh automatically on next import.';
+      document.getElementById('banner').style.display = 'block';
+    } else {
+      btn.disabled = false; btn.textContent = '↩ Undo';
+      alert('Undo failed: ' + (data.error || 'Unknown'));
+    }
+  })
+  .catch(e => { btn.disabled = false; btn.textContent = '↩ Undo'; alert('Network error: ' + e); });
+}
+</script>
+{% endif %}
+</body>
+</html>

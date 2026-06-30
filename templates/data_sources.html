@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Sources — Personal Finance Analyser</title>
+  <link rel="stylesheet" href="/static/base.css">
+  <style>
+    .ds-section { background:var(--bg-inner); border:1px solid var(--border); border-radius:10px; padding:20px 24px; margin-bottom:24px }
+    .ds-section-title { font-size:1rem; font-weight:700; color:var(--accent); margin-bottom:16px; display:flex; align-items:center; gap:10px }
+    .ds-table { width:100%; border-collapse:collapse; font-size:.85rem }
+    .ds-table th { text-align:left; padding:8px 10px; color:var(--text-3); font-weight:600; border-bottom:1px solid var(--border); white-space:nowrap }
+    .ds-table td { padding:9px 10px; border-bottom:1px solid var(--border-2); vertical-align:middle }
+    .ds-table tr:last-child td { border-bottom:none }
+    .ds-table tr:hover td { background:var(--accent-row) }
+    .badge { display:inline-flex; align-items:center; gap:4px; border-radius:20px; padding:2px 10px; font-size:.75rem; font-weight:700; white-space:nowrap }
+    .badge-live    { background:rgba(52,211,153,.12);  color:#059669; border:1px solid rgba(52,211,153,.35) }
+    .badge-current { background:rgba(74,222,128,.12);  color:#22c55e; border:1px solid rgba(74,222,128,.35) }
+    .badge-stale   { background:rgba(251,146,60,.15);  color:#d97706; border:1px solid rgba(251,146,60,.35) }
+    .badge-overdue { background:rgba(248,113,113,.15); color:#dc2626; border:1px solid rgba(248,113,113,.35) }
+    .badge-never   { background:var(--bg-card); color:var(--text-2); border:1px solid var(--border) }
+    .badge-closed  { background:var(--bg-card); color:var(--text-3); border:1px solid var(--border) }
+    .conn-card { background:var(--bg-page); border:1px solid var(--border); border-radius:8px; padding:14px 18px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap }
+    .conn-name { font-weight:600; color:var(--text-1); font-size:.9rem }
+    .conn-status { font-size:.78rem; color:var(--text-3) }
+    .conn-actions { display:flex; gap:8px; flex-shrink:0 }
+    .btn-sm { padding:4px 12px; border-radius:6px; font-size:.78rem; font-weight:600; cursor:pointer; border:1px solid transparent; transition:background .15s }
+    .btn-danger  { background:rgba(239,68,68,.12); color:#dc2626; border-color:rgba(239,68,68,.3) }
+    .btn-danger:hover  { background:rgba(239,68,68,.2) }
+    .btn-primary { background:var(--accent); color:white; border-color:var(--accent) }
+    .btn-primary:hover { background:var(--accent-h) }
+    .btn-muted   { background:var(--bg-card); color:var(--text-2); border-color:var(--border) }
+    .btn-muted:hover   { background:var(--bg-inner) }
+    .btn-green   { background:rgba(16,185,129,.12); color:#059669; border-color:rgba(16,185,129,.3) }
+    .btn-green:hover   { background:rgba(16,185,129,.2) }
+    .connect-btn { display:inline-flex; align-items:center; gap:8px; background:var(--accent); color:white; border:none; border-radius:8px; padding:9px 18px; font-size:.88rem; font-weight:600; cursor:pointer; transition:background .15s }
+    .connect-btn:hover { background:var(--accent-h) }
+    .sync-log { background:var(--bg-page); border:1px solid var(--border); border-radius:6px; padding:12px 14px; font-family:monospace; font-size:.78rem; color:var(--text-2); max-height:180px; overflow-y:auto; display:none; margin-top:12px; white-space:pre-wrap }
+    .sync-log.visible { display:block }
+    #sync-progress { display:none }
+    .no-cdr-note { color:var(--text-3); font-size:.85rem; margin-bottom:16px }
+    .stale-note { font-size:.78rem; color:var(--text-3); margin-top:4px }
+    .action-link { font-size:.75rem; color:var(--accent); cursor:pointer; background:none; border:none; padding:0; text-decoration:underline }
+    .action-link:hover { color:var(--accent-h) }
+    .setup-box { background:var(--bg-inner); border:1px solid var(--border); border-radius:8px; padding:16px 20px; color:var(--text-2); font-size:.85rem; line-height:1.6 }
+    .setup-box strong { color:var(--text-1) }
+    .setup-box code { background:var(--bg-card); padding:1px 6px; border-radius:4px; font-size:.8rem; color:var(--accent) }
+    .setup-box a { color:var(--accent) }
+    .alert-success { background:rgba(52,211,153,.1); border:1px solid rgba(52,211,153,.3); color:#059669; padding:10px 16px; border-radius:8px; margin-bottom:16px; font-size:.88rem }
+    .alert-error   { background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.3); color:#dc2626; padding:10px 16px; border-radius:8px; margin-bottom:16px; font-size:.88rem }
+    @media(max-width:600px) { .ds-table th:nth-child(3), .ds-table td:nth-child(3) { display:none } }
+  </style>
+</head>
+<body>
+{% set active_section = 'settings' %}
+{% set active_tab = 'data_sources' %}
+{% include 'partials/_nav.html' %}
+
+<main class="main-content">
+  <h1 class="page-title">Data Sources</h1>
+
+  {% if request.args.get('connected') %}
+  <div class="alert-success">
+    Bank account connected successfully. Click <strong>Sync Now</strong> to import transactions.
+  </div>
+  {% endif %}
+  {% if request.args.get('error') %}
+  <div class="alert-error">
+    Connection error: {{ request.args.get('error') }}
+  </div>
+  {% endif %}
+
+  <!-- CDR / Live Bank Feeds -->
+  <div class="ds-section">
+    <div class="ds-section-title">
+      &#127959; Live Bank Feeds (CDR)
+      {% if connections %}
+      <span class="badge badge-live">{{ connections|length }} connected</span>
+      {% endif %}
+    </div>
+
+    {% if not basiq_configured %}
+    <div class="setup-box">
+      <strong>Live bank feeds not configured.</strong><br>
+      To enable automatic daily transaction imports:<br><br>
+      1. Register at <a href="https://dashboard.basiq.io" target="_blank">dashboard.basiq.io</a> (free developer account)<br>
+      2. Create an application and get your API key<br>
+      3. Set the key as a Windows environment variable:<br>
+      <code>[Environment]::SetEnvironmentVariable("BASIQ_API_KEY", "server_xxx", "User")</code><br>
+      4. Add <code>basiq:\n  sync_interval_hours: 24</code> to <code>config.yaml</code><br>
+      5. Restart the server
+    </div>
+
+    {% else %}
+
+    {% if connections %}
+    {% for conn in connections %}
+    <div class="conn-card">
+      <div>
+        <div class="conn-name">{{ conn.institution_name or conn.institution or 'Unknown Institution' }}</div>
+        <div class="conn-status">Status: {{ conn.status or 'unknown' }} &nbsp;·&nbsp; ID: {{ conn.id[:12] }}…</div>
+      </div>
+      <div class="conn-actions">
+        <button class="btn-sm btn-danger" onclick="disconnectBank('{{ conn.id }}')">Disconnect</button>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="no-cdr-note">No bank accounts connected yet. Click <strong>Connect New Account</strong> to get started.</p>
+    {% endif %}
+
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px">
+      <button class="connect-btn" onclick="connectBank()">&#43; Connect New Account</button>
+      {% if connections %}
+      <button class="btn-sm btn-green" id="sync-btn" onclick="startSync()">&#8635; Sync Now</button>
+      {% if last_sync %}
+      <span style="font-size:.78rem;color:var(--text-3)">Last sync: {{ last_sync[:16].replace('T',' ') }}</span>
+      {% endif %}
+      {% endif %}
+    </div>
+    <div id="sync-log" class="sync-log"></div>
+    {% endif %}
+  </div>
+
+  <!-- Account Currency Status -->
+  <div class="ds-section">
+    <div class="ds-section-title">
+      &#128196; Account Currency Status
+      {% if stale_count > 0 %}
+      <span class="badge badge-stale">{{ stale_count }} need{{ 's' if stale_count == 1 else '' }} update</span>
+      {% else %}
+      <span class="badge badge-current">All current</span>
+      {% endif %}
+    </div>
+    <p class="stale-note">
+      Accounts stale &gt; 30 days show an amber badge in the nav bar as a reminder to upload a statement.
+      Mark accounts as <em>Closed</em> to suppress the reminder permanently.
+    </p>
+
+    <table class="ds-table">
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th>Institution</th>
+          <th>Type</th>
+          <th>Last Import</th>
+          <th>Days Since</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for acct in accounts %}
+        <tr id="acct-row-{{ loop.index }}">
+          <td style="font-weight:600;color:var(--text-1)">{{ acct.name }}</td>
+          <td style="color:var(--text-2)">{{ acct.bank }}</td>
+          <td style="color:var(--text-3);font-size:.78rem">{{ acct.type }}</td>
+          <td style="color:var(--text-2)">{{ acct.last_date or '—' }}</td>
+          <td style="color:{% if acct.days_stale is none %}var(--text-3){% elif acct.days_stale <= 30 %}#22c55e{% elif acct.days_stale <= 60 %}#d97706{% else %}#dc2626{% endif %}">
+            {{ acct.days_stale if acct.days_stale is not none else '—' }}
+          </td>
+          <td>
+            {% if acct.status == 'live' %}
+            <span class="badge badge-live">&#9679; Live</span>
+            {% elif acct.status == 'current' %}
+            <span class="badge badge-current">&#10003; Current</span>
+            {% elif acct.status == 'stale' %}
+            <span class="badge badge-stale">&#9650; Stale</span>
+            {% elif acct.status == 'overdue' %}
+            <span class="badge badge-overdue">&#9888; Overdue</span>
+            {% elif acct.status == 'closed' %}
+            <span class="badge badge-closed">Closed</span>
+            {% else %}
+            <span class="badge badge-never">No data</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if acct.status == 'closed' %}
+            <button class="action-link" onclick="toggleClosed('{{ acct.name }}', false, {{ loop.index }})">Reactivate</button>
+            {% elif not acct.is_cdr %}
+            <button class="action-link" onclick="toggleClosed('{{ acct.name }}', true, {{ loop.index }})">Mark closed</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+function connectBank() {
+  fetch('/api/basiq/connect').then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert('Error: ' + d.error); return; }
+    var popup = window.open(d.consent_url, 'basiq_consent', 'width=520,height=680,scrollbars=yes');
+    if (!popup) {
+      window.location.href = d.consent_url;
+      return;
+    }
+    // Poll for the popup to close (user completed consent)
+    var poll = setInterval(function(){
+      try {
+        if (popup.closed) {
+          clearInterval(poll);
+          window.location.reload();
+        }
+      } catch(e) {}
+    }, 1000);
+  }).catch(function(e){ alert('Connection failed: ' + e); });
+}
+
+function startSync() {
+  var log = document.getElementById('sync-log');
+  var btn = document.getElementById('sync-btn');
+  if (!log || !btn) return;
+  log.textContent = '';
+  log.classList.add('visible');
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+
+  var es = new EventSource('/api/basiq/sync' + '?_=' + Date.now());
+  // Use POST via fetch then stream (EventSource doesn't support POST)
+  // Instead re-open as a fetch stream
+  es.close();
+
+  fetch('/api/basiq/sync', { method: 'POST' }).then(function(resp) {
+    var reader = resp.body.getReader();
+    var decoder = new TextDecoder();
+    function read() {
+      reader.read().then(function(result){
+        if (result.done) {
+          btn.disabled = false;
+          btn.textContent = '↻ Sync Now';
+          return;
+        }
+        var text = decoder.decode(result.value, { stream: true });
+        // Parse SSE lines
+        text.split('\n').forEach(function(line){
+          if (line.startsWith('data: ')) {
+            var msg = line.slice(6);
+            if (msg) log.textContent += msg + '\n';
+            log.scrollTop = log.scrollHeight;
+          }
+          if (line === 'event: done') {
+            setTimeout(function(){ window.location.reload(); }, 1500);
+          }
+        });
+        read();
+      });
+    }
+    read();
+  }).catch(function(e){
+    log.textContent += 'Sync error: ' + e + '\n';
+    btn.disabled = false;
+    btn.textContent = '↻ Sync Now';
+  });
+}
+
+function disconnectBank(connId) {
+  if (!confirm('Disconnect this bank? Historical transactions are kept.')) return;
+  fetch('/api/basiq/disconnect/' + connId, { method: 'POST' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.ok) window.location.reload();
+      else alert('Error: ' + d.error);
+    });
+}
+
+function toggleClosed(name, close, idx) {
+  fetch('/api/account/toggle-closed', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ account: name, close: close })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.ok) window.location.reload();
+    else alert('Error: ' + d.error);
+  });
+}
+</script>
+</body>
+</html>

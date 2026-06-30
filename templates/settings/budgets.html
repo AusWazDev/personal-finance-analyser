@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Budgets — Personal Finance Analyser</title>
+  <link rel="stylesheet" href="/static/base.css">
+  <style>
+    .page-header{margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+    .page-header h1{font-size:1.6rem;color:#2A9D8F;margin:0}
+    .page-header p{color:#94a3b8;margin-top:4px;font-size:.9rem}
+    .card{background:#1d3540;border-radius:12px;padding:24px;margin-bottom:20px}
+    .btn-primary{padding:9px 22px;background:#2A9D8F;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.9rem}
+    .btn-primary:hover{background:#21867a}
+    .btn-outline{padding:8px 18px;background:transparent;color:#2A9D8F;border:1px solid #2A9D8F;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:600}
+    .btn-outline:hover{background:#2A9D8F22}
+    .btn-sm{padding:4px 12px;font-size:.8rem;border-radius:6px;cursor:pointer;border:none;font-weight:600}
+    table{width:100%;border-collapse:collapse}
+    th{text-align:left;padding:10px 14px;color:#94a3b8;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #2e4a5a;white-space:nowrap}
+    td{padding:8px 14px;border-bottom:1px solid #1a2e3a;font-size:.87rem;vertical-align:middle}
+    tr:hover td{background:rgba(42,157,143,.04)}
+    .cat-name{color:#e2e8f0;font-weight:600}
+    .limit-input{width:120px;padding:6px 10px;border-radius:6px;border:1px solid #2e4a5a;background:#0f1923;color:#e2e8f0;font-size:.9rem;text-align:right}
+    .limit-input:focus{outline:none;border-color:#2A9D8F}
+    .limit-input.has-value{border-color:#2A9D8F55}
+    .suggest-cell{color:#4cc9f0;font-size:.85rem;min-width:110px}
+    .suggest-hint{font-size:.74rem;color:#64748b}
+    .btn-use{background:#2A9D8F22;color:#2A9D8F;border:1px solid #2A9D8F44;border-radius:5px;padding:3px 10px;font-size:.78rem;cursor:pointer;font-weight:600}
+    .btn-use:hover{background:#2A9D8F44}
+    .suggest-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;padding:14px 18px;background:#152530;border-radius:10px;border:1px solid #2e4a5a}
+    .suggest-bar label{font-size:.87rem;color:#94a3b8}
+    .suggest-bar select{padding:6px 10px;border-radius:6px;border:1px solid #2e4a5a;background:#0f1923;color:#e2e8f0;font-size:.9rem}
+    .suggest-bar select:focus{outline:none;border-color:#2A9D8F}
+    .toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:.9rem;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999;color:white}
+    .toast.show{opacity:1}
+    .toast.ok{background:#2A9D8F}
+    .toast.err{background:#E63946}
+    .action-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .saved-note{font-size:.8rem;color:#64748b;margin-top:4px}
+    .use-all-btn{padding:5px 14px;background:#1a3040;color:#4cc9f0;border:1px solid #2e4a5a;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:600}
+    .use-all-btn:hover{background:#2e4a5a}
+  </style>
+</head>
+<body>
+
+{% include 'partials/_nav.html' %}
+
+<div class="page-header">
+  <div>
+    <h1>Budgets</h1>
+    <p>Set monthly spending limits per category. Leave blank for no limit.</p>
+  </div>
+  <div class="action-row">
+    <button class="btn-primary" onclick="saveBudgets()">Save budgets</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="suggest-bar">
+    <label>Suggest from last</label>
+    <select id="months-select">
+      <option value="3">3 months</option>
+      <option value="6">6 months</option>
+      <option value="12">12 months</option>
+    </select>
+    <button class="btn-outline" onclick="fetchSuggestions()">Fetch suggestions</button>
+    <button class="use-all-btn" id="use-all-btn" style="display:none" onclick="useAll()">Use all suggestions</button>
+    <span id="suggest-status" style="font-size:.82rem;color:#64748b"></span>
+  </div>
+
+  <table id="budget-table">
+    <thead>
+      <tr>
+        <th style="width:220px">Category</th>
+        <th style="width:150px">Monthly limit ($)</th>
+        <th style="width:120px" title="Carry unspent balance from prior month into this month (capped at 1× limit)">Rollover &#9432;</th>
+        <th style="width:130px" title="Compare against monthly or fortnightly windows">Period &#9432;</th>
+        <th style="width:160px">This period</th>
+        <th style="width:160px">Suggested</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cat in all_cats %}
+      <tr data-cat="{{ cat }}">
+        <td class="cat-name">{{ cat }}</td>
+        <td>
+          <input
+            class="limit-input{% if current_budgets.get(cat) %} has-value{% endif %}"
+            id="inp-{{ loop.index }}"
+            data-cat="{{ cat }}"
+            type="number"
+            min="0"
+            step="25"
+            placeholder="—"
+            value="{{ current_budgets.get(cat, '') }}"
+            oninput="onInput(this)"
+          >
+        </td>
+        <td style="text-align:center">
+          <input type="checkbox" class="rollover-cb" data-cat="{{ cat }}"
+                 {% if rollover_settings.get(cat) %}checked{% endif %}
+                 style="width:16px;height:16px;cursor:pointer;accent-color:#2A9D8F"
+                 title="Roll over unspent budget from previous month">
+        </td>
+        <td style="text-align:center">
+          <select class="period-sel" data-cat="{{ cat }}"
+                  style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);
+                         background:var(--surface-2);color:var(--text-1);font-size:.8rem;cursor:pointer"
+                  title="Monthly = calendar month window; Fortnightly = 14-day window (limit ÷ 2)">
+            <option value="monthly" {{ 'selected' if period_settings.get(cat, 'monthly') == 'monthly' }}>Monthly</option>
+            <option value="fortnightly" {{ 'selected' if period_settings.get(cat) == 'fortnightly' }}>Fortnightly</option>
+          </select>
+        </td>
+        <td style="font-size:.82rem">
+          {% set b = burn_rate.get(cat) %}
+          {% if b and b.limit %}
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="flex:1;background:#1a2e3a;border-radius:3px;height:5px;overflow:hidden">
+                <div style="height:5px;border-radius:3px;background:{{ '#ef4444' if b.pct >= 100 else ('#f59e0b' if b.pct >= 80 else '#2A9D8F') }};width:{{ [b.pct, 100]|min|int }}%"></div>
+              </div>
+              <span style="white-space:nowrap;color:{{ '#ef4444' if b.pct >= 100 else ('#f59e0b' if b.pct >= 80 else '#94a3b8') }}">
+                ${{ "{:,.0f}".format(b.actual) }} / ${{ "{:,.0f}".format(b.limit) }}
+              </span>
+            </div>
+            {% if b.days_to_over is not none and b.days_to_over <= b.days_in_month - b.days_elapsed + 3 %}
+              {% if b.days_to_over <= 0 %}
+                <div style="color:#ef4444;font-size:.74rem;margin-top:2px">Over budget</div>
+              {% else %}
+                <div style="color:#f59e0b;font-size:.74rem;margin-top:2px">Exceeds in ~{{ b.days_to_over|int }} days</div>
+              {% endif %}
+            {% elif b.pct > 0 %}
+              <div style="color:#64748b;font-size:.74rem;margin-top:2px">On track · proj. ${{ "{:,.0f}".format(b.projected) }}</div>
+            {% endif %}
+          {% else %}
+            <span style="color:#4a6070">—</span>
+          {% endif %}
+        </td>
+        <td class="suggest-cell" id="sug-{{ cat | replace(' ', '_') | replace('&', 'AMP') }}">—</td>
+        <td>
+          <button class="btn-use" id="use-{{ cat | replace(' ', '_') | replace('&', 'AMP') }}"
+                  style="display:none" onclick="useSuggestion('{{ cat }}')">Use</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+    <button class="btn-primary" onclick="saveBudgets()">Save budgets</button>
+    <span id="save-note" class="saved-note"></span>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const CAT_BUDGETS = {{ current_budgets | tojson }};
+
+function _catKey(cat) {
+  return cat.replace(/ /g, '_').replace(/&/g, 'AMP');
+}
+
+function onInput(inp) {
+  inp.classList.toggle('has-value', inp.value > 0);
+}
+
+function showToast(msg, ok) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (ok ? 'ok' : 'err');
+  setTimeout(() => { t.className = 'toast'; }, 3500);
+}
+
+function saveBudgets() {
+  const budgets = {};
+  document.querySelectorAll('.limit-input').forEach(inp => {
+    const v = parseFloat(inp.value);
+    if (v > 0) budgets[inp.dataset.cat] = v;
+  });
+  const rollover = {};
+  document.querySelectorAll('.rollover-cb').forEach(cb => {
+    if (cb.checked) rollover[cb.dataset.cat] = true;
+  });
+  const periods = {};
+  document.querySelectorAll('.period-sel').forEach(sel => {
+    if (sel.value === 'fortnightly') periods[sel.dataset.cat] = 'fortnightly';
+  });
+  // Save period settings in parallel
+  fetch('/api/budgets/periods', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(periods)
+  });
+  fetch('/api/budgets', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({budgets, rollover})
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      showToast('Saved ' + d.saved + ' budget limit' + (d.saved !== 1 ? 's' : '') + '.', true);
+      document.getElementById('save-note').textContent = 'Last saved ' + new Date().toLocaleTimeString();
+    } else {
+      showToast('Save failed.', false);
+    }
+  })
+  .catch(() => showToast('Save failed.', false));
+}
+
+let _suggestions = {};
+
+function fetchSuggestions() {
+  const months = document.getElementById('months-select').value;
+  const statusEl = document.getElementById('suggest-status');
+  statusEl.textContent = 'Loading…';
+
+  fetch('/api/budgets/suggest?months=' + months)
+  .then(r => r.json())
+  .then(d => {
+    if (!d.ok) { statusEl.textContent = 'Error: ' + d.error; return; }
+    _suggestions = d.suggestions;
+    const cats = Object.keys(_suggestions);
+    statusEl.textContent = cats.length + ' categories with data in the last ' + months + ' month' + (months > 1 ? 's' : '') + '.';
+    document.getElementById('use-all-btn').style.display = cats.length ? '' : 'none';
+
+    // Clear previous suggestions
+    document.querySelectorAll('.suggest-cell').forEach(el => { el.innerHTML = '—'; });
+    document.querySelectorAll('[id^="use-"]').forEach(el => { el.style.display = 'none'; });
+
+    cats.forEach(cat => {
+      const s = _suggestions[cat];
+      const key = _catKey(cat);
+      const sugEl = document.getElementById('sug-' + key);
+      const useEl = document.getElementById('use-' + key);
+      if (sugEl) {
+        sugEl.innerHTML = '$' + s.suggested.toLocaleString('en-AU', {minimumFractionDigits: 0})
+          + '<div class="suggest-hint">avg $' + s.avg.toFixed(0) + '/mo &middot; '
+          + s.months_with_data + ' month' + (s.months_with_data !== 1 ? 's' : '') + ' of data</div>';
+      }
+      if (useEl) useEl.style.display = '';
+    });
+  })
+  .catch(() => { statusEl.textContent = 'Request failed.'; });
+}
+
+function useSuggestion(cat) {
+  const s = _suggestions[cat];
+  if (!s) return;
+  const inp = document.querySelector(`.limit-input[data-cat="${cat}"]`);
+  if (inp) {
+    inp.value = s.suggested;
+    onInput(inp);
+  }
+}
+
+function useAll() {
+  Object.keys(_suggestions).forEach(cat => useSuggestion(cat));
+}
+</script>
+</body>
+</html>

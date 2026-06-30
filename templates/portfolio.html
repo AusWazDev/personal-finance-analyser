@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Investment Portfolio — Personal Finance Analyser</title>
+  <style>
+    .pf-stats{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap}
+    .pf-stat{background:#1d3540;border-radius:10px;padding:16px 22px;flex:1;min-width:140px}
+    .pf-stat .lbl{font-size:.7rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+    .pf-stat .val{font-size:1.25rem;font-weight:700;color:#e2e8f0}
+    .pf-stat .sub{font-size:.75rem;color:#64748b;margin-top:3px}
+    .pf-stat.pl-pos .val{color:#22c55e}
+    .pf-stat.pl-neg .val{color:#f87171}
+    .hold-table{width:100%;border-collapse:collapse;font-size:.86rem;margin-top:4px}
+    .hold-table th{text-align:left;padding:8px 10px;font-size:.73rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #2e4a5a;white-space:nowrap}
+    .hold-table th.r,.hold-table td.r{text-align:right}
+    .hold-table td{padding:10px 10px;border-bottom:1px solid #1a2e3a;vertical-align:middle}
+    .hold-table tr:hover td{background:#1d3540}
+    .tick{font-weight:700;font-family:monospace;letter-spacing:.04em;color:#4CC9F0}
+    .hold-name{color:#94a3b8;font-size:.82rem}
+    .pl-pos{color:#22c55e;font-weight:600}
+    .pl-neg{color:#f87171;font-weight:600}
+    .no-price{color:#4a6070;font-size:.8rem}
+    .lots-table{width:100%;border-collapse:collapse;font-size:.82rem}
+    .lots-table th{text-align:left;padding:6px 10px;font-size:.7rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #2e4a5a}
+    .lots-table th.r,.lots-table td.r{text-align:right}
+    .lots-table td{padding:7px 10px;border-bottom:1px solid #131f28;color:#94a3b8;font-size:.8rem}
+    .del-btn{background:none;border:none;color:#4a6070;cursor:pointer;font-size:.9rem;padding:2px 6px}
+    .del-btn:hover{color:#f87171}
+    .add-btn{background:#2A9D8F;color:white;border:none;border-radius:8px;padding:7px 16px;font-size:.82rem;font-weight:600;cursor:pointer}
+    .add-btn:hover{background:#238c7e}
+    .refresh-btn{background:transparent;border:1px solid #2e4a5a;color:#94a3b8;border-radius:8px;padding:7px 14px;font-size:.8rem;cursor:pointer}
+    .refresh-btn:hover{border-color:#2a9d8f;color:#2a9d8f}
+    .price-note{font-size:.75rem;color:#64748b;margin-top:8px}
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1000;align-items:center;justify-content:center}
+    .modal-overlay.open{display:flex}
+    .modal-box{background:#1d3540;border-radius:14px;padding:28px;width:min(440px,94vw);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+    .modal-box h3{margin:0 0 20px;color:#e2e8f0;font-size:1rem}
+    .form-row{margin-bottom:14px}
+    .form-row label{display:block;font-size:.78rem;color:#94a3b8;margin-bottom:5px;font-weight:600}
+    .form-inp{width:100%;background:#0f1923;border:1px solid #2e4a5a;color:#e2e8f0;border-radius:8px;padding:8px 12px;font-size:.87rem;box-sizing:border-box}
+    .form-inp:focus{outline:none;border-color:#2a9d8f}
+    .modal-btns{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
+    .cancel-btn{background:transparent;border:1px solid #2e4a5a;color:#94a3b8;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:.85rem}
+    .save-btn{background:#2A9D8F;color:white;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-size:.85rem;font-weight:600}
+    .empty-hint{text-align:center;padding:32px;color:#4a6070;font-size:.9rem}
+    @media(max-width:600px){.pf-stats{flex-direction:column}}
+  </style>
+</head>
+<body>
+
+{% set active_section = 'data' %}
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>Investment Portfolio</h1>
+  <p>Purchase lots, cost basis, and unrealised P&amp;L. Prices fetched on demand from Yahoo Finance.</p>
+</div>
+
+<!-- Stats -->
+<div class="pf-stats">
+  <div class="pf-stat">
+    <div class="lbl">Holdings</div>
+    <div class="val">{{ holdings|length }}</div>
+    <div class="sub">{{ lots|length }} lot(s)</div>
+  </div>
+  <div class="pf-stat">
+    <div class="lbl">Total Cost Basis</div>
+    <div class="val">${{ "{:,.0f}".format(total_cost) }}</div>
+  </div>
+  {% if total_value is not none %}
+  <div class="pf-stat">
+    <div class="lbl">Market Value</div>
+    <div class="val">${{ "{:,.0f}".format(total_value) }}</div>
+  </div>
+  <div class="pf-stat {{ 'pl-pos' if total_pl >= 0 else 'pl-neg' }}">
+    <div class="lbl">Unrealised P&amp;L</div>
+    <div class="val">{% if total_pl >= 0 %}+{% endif %}${{ "{:,.0f}".format(total_pl) }}</div>
+    <div class="sub">{% if total_cost %}{{ "{:.1f}".format(total_pl / total_cost * 100) }}%{% endif %}</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Holdings table -->
+<div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div class="card-title" style="margin-bottom:0">Holdings</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <form method="get" style="display:inline">
+        <button type="submit" class="refresh-btn" name="refresh_prices" value="1"
+                title="Fetch live prices from Yahoo Finance (requires internet access)">
+          ↻ Refresh Prices
+        </button>
+      </form>
+      <button class="add-btn" onclick="openAddLot()">+ Add Lot</button>
+    </div>
+  </div>
+
+  {% if price_error %}
+  <p style="color:#f59e0b;font-size:.82rem;margin-bottom:12px">⚠ Price fetch failed — check internet connection or ticker symbols.</p>
+  {% endif %}
+
+  {% if holdings %}
+  <div style="overflow-x:auto">
+    <table class="hold-table">
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th class="r">Units</th>
+          <th class="r">Avg Cost</th>
+          <th class="r">Cost Basis</th>
+          <th class="r">Price</th>
+          <th class="r">Market Value</th>
+          <th class="r">Unrealised P&amp;L</th>
+          <th class="r">Return %</th>
+          <th class="r">CAGR</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in holdings %}
+        <tr>
+          <td>
+            <div class="tick">{{ h.ticker }}</div>
+            <div class="hold-name">{{ h.name if h.name != h.ticker else '' }}</div>
+          </td>
+          <td class="r">{{ "{:,.4f}".format(h.units) }}</td>
+          <td class="r">${{ "{:,.4f}".format(h.avg_cost) }}</td>
+          <td class="r" style="font-weight:600">${{ "{:,.2f}".format(h.cost_basis) }}</td>
+          <td class="r">
+            {% if h.current_price is not none %}
+              ${{ "{:,.4f}".format(h.current_price) }}
+            {% else %}
+              <span class="no-price">—</span>
+            {% endif %}
+          </td>
+          <td class="r" style="font-weight:600">
+            {% if h.current_value is not none %}
+              ${{ "{:,.2f}".format(h.current_value) }}
+            {% else %}
+              <span class="no-price">—</span>
+            {% endif %}
+          </td>
+          <td class="r {{ 'pl-pos' if h.unrealised_pl is not none and h.unrealised_pl >= 0 else ('pl-neg' if h.unrealised_pl is not none else '') }}">
+            {% if h.unrealised_pl is not none %}
+              {% if h.unrealised_pl >= 0 %}+{% endif %}${{ "{:,.2f}".format(h.unrealised_pl) }}
+            {% else %}
+              <span class="no-price">—</span>
+            {% endif %}
+          </td>
+          <td class="r {{ 'pl-pos' if h.pl_pct is not none and h.pl_pct >= 0 else ('pl-neg' if h.pl_pct is not none else '') }}">
+            {% if h.pl_pct is not none %}
+              {% if h.pl_pct >= 0 %}+{% endif %}{{ "{:.1f}".format(h.pl_pct) }}%
+            {% else %}
+              <span class="no-price">—</span>
+            {% endif %}
+          </td>
+          <td class="r {{ 'pl-pos' if h.cagr is not none and h.cagr >= 0 else ('pl-neg' if h.cagr is not none else '') }}">
+            {% if h.cagr is not none %}
+              {% if h.cagr >= 0 %}+{% endif %}{{ "{:.1f}".format(h.cagr) }}% p.a.
+            {% else %}
+              <span class="no-price">—</span>
+            {% endif %}
+          </td>
+          <td style="white-space:nowrap;font-size:.75rem;color:#64748b">{{ h.lots }} lot(s)</td>
+        </tr>
+        {% endfor %}
+        <tr style="font-weight:700;border-top:2px solid #2e4a5a">
+          <td colspan="3" style="padding:9px 10px">Total</td>
+          <td class="r">${{ "{:,.2f}".format(total_cost) }}</td>
+          <td></td>
+          <td class="r">{% if total_value is not none %}${{ "{:,.2f}".format(total_value) }}{% else %}—{% endif %}</td>
+          <td class="r {{ 'pl-pos' if total_pl is not none and total_pl >= 0 else ('pl-neg' if total_pl is not none else '') }}">
+            {% if total_pl is not none %}{% if total_pl >= 0 %}+{% endif %}${{ "{:,.2f}".format(total_pl) }}{% else %}—{% endif %}
+          </td>
+          <td colspan="2"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  {% if prices_loaded %}
+  <p class="price-note">Prices fetched live from Yahoo Finance. Refresh to update.</p>
+  {% elif lots %}
+  <p class="price-note">Click <strong>↻ Refresh Prices</strong> to fetch current market prices from Yahoo Finance (no API key required).</p>
+  {% endif %}
+
+  {% else %}
+  <div class="empty-hint">No holdings yet. Click <strong>+ Add Lot</strong> to record a purchase.</div>
+  {% endif %}
+</div>
+
+<!-- Lots table -->
+{% if lots %}
+<div class="card">
+  <div class="card-title">Purchase Lots</div>
+  <div style="overflow-x:auto">
+    <table class="lots-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Ticker</th>
+          <th>Name</th>
+          <th class="r">Units</th>
+          <th class="r">Cost/Unit</th>
+          <th class="r">Total Cost</th>
+          <th>Note</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lot in lots | sort(attribute="date") %}
+        <tr>
+          <td>{{ lot.date }}</td>
+          <td class="tick">{{ lot.ticker }}</td>
+          <td>{{ lot.name if lot.name != lot.ticker else '' }}</td>
+          <td class="r">{{ lot.units }}</td>
+          <td class="r">${{ "{:,.4f}".format(lot.cost_per_unit) }}</td>
+          <td class="r">${{ "{:,.2f}".format(lot.units * lot.cost_per_unit) }}</td>
+          <td>{{ lot.note or '' }}</td>
+          <td>
+            <button class="del-btn" onclick="deleteLot('{{ lot.lot_id }}')">✕</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:.75rem;color:#64748b;margin-top:10px">
+    Lots feed the Capital Gains page for CGT calculations.
+    <a href="/capital-gains" style="color:#2a9d8f">View Capital Gains →</a>
+  </p>
+</div>
+{% endif %}
+
+
+<!-- Add Lot Modal -->
+<div class="modal-overlay" id="lot-modal">
+  <div class="modal-box">
+    <h3>Add Purchase Lot</h3>
+    <div class="form-row">
+      <label>Ticker Symbol</label>
+      <input class="form-inp" id="lot-ticker" type="text" placeholder="e.g. VAS.AX or AAPL" style="text-transform:uppercase">
+    </div>
+    <div class="form-row">
+      <label>Name (optional)</label>
+      <input class="form-inp" id="lot-name" type="text" placeholder="e.g. Vanguard Australian Shares ETF">
+    </div>
+    <div class="form-row">
+      <label>Purchase Date</label>
+      <input class="form-inp" id="lot-date" type="date">
+    </div>
+    <div class="form-row">
+      <label>Units / Shares</label>
+      <input class="form-inp" id="lot-units" type="number" min="0" step="0.001" placeholder="e.g. 100">
+    </div>
+    <div class="form-row">
+      <label>Cost per Unit ($AUD)</label>
+      <input class="form-inp" id="lot-cost" type="number" min="0" step="0.001" placeholder="e.g. 98.50">
+    </div>
+    <div class="form-row">
+      <label>Note (optional)</label>
+      <input class="form-inp" id="lot-note" type="text" placeholder="e.g. Brokerage: Commsec">
+    </div>
+    <div class="modal-btns">
+      <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+      <button class="save-btn" onclick="saveLot()">Add Lot</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var TODAY = new Date().toISOString().slice(0,10);
+
+function openAddLot() {
+  document.getElementById('lot-ticker').value = '';
+  document.getElementById('lot-name').value = '';
+  document.getElementById('lot-date').value = TODAY;
+  document.getElementById('lot-units').value = '';
+  document.getElementById('lot-cost').value = '';
+  document.getElementById('lot-note').value = '';
+  document.getElementById('lot-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('lot-modal').classList.remove('open');
+}
+
+document.getElementById('lot-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+function saveLot() {
+  var ticker = document.getElementById('lot-ticker').value.trim().toUpperCase();
+  if (!ticker) { alert('Ticker is required'); return; }
+  var units = parseFloat(document.getElementById('lot-units').value);
+  var cost  = parseFloat(document.getElementById('lot-cost').value);
+  if (!units || !cost) { alert('Units and cost per unit are required'); return; }
+  var body = {
+    ticker: ticker,
+    name: document.getElementById('lot-name').value || ticker,
+    date: document.getElementById('lot-date').value,
+    units: units,
+    cost_per_unit: cost,
+    note: document.getElementById('lot-note').value,
+  };
+  fetch('/api/portfolio/lots', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)})
+  .then(function(r){return r.json();}).then(function(d){
+    if (d.ok) location.reload();
+  });
+}
+
+function deleteLot(lot_id) {
+  if (!confirm('Delete this lot? This cannot be undone.')) return;
+  fetch('/api/portfolio/lots/' + lot_id, {method:'DELETE'})
+    .then(function(r){return r.json();}).then(function(d){ if (d.ok) location.reload(); });
+}
+</script>
+</body>
+</html>

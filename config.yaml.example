@@ -1,0 +1,282 @@
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  Personal Finance Analyser — configuration template                        ║
+# ║                                                                            ║
+# ║  Copy this file to config.yaml and fill in your details.                  ║
+# ║  Lines starting with # are comments and are ignored by the app.           ║
+# ║                                                                            ║
+# ║  NEVER put your Anthropic API key in this file.                           ║
+# ║  Set it as a Windows environment variable instead:                        ║
+# ║    [Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY","sk-ant-...","User")  ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+# ── Server ────────────────────────────────────────────────────────────────────
+server:
+  port: 5100
+
+  # Optional: protect the app with a local password.
+  # Generate a hash with this one-liner in Python:
+  #   python -c "import hashlib,os,binascii; s=os.urandom(16); print('pbkdf2:sha256:100000:'+binascii.hexlify(s).decode()+':'+hashlib.pbkdf2_hmac('sha256',b'yourpassword',s,100000).hex())"
+  # Then paste the result here:
+  # password_hash: pbkdf2:sha256:100000:<salt_hex>:<hash_hex>
+
+  # Optional: stable Flask secret key (sessions survive restarts).
+  # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+  # secret_key: <32-char hex string>
+
+  # Optional: GitHub repo slug for auto-update checks (e.g. "yourname/pfa").
+  # update_check_repo: yourname/pfa
+
+  # Optional: Sentry DSN for crash reporting (opt-in).
+  # sentry_dsn: https://xxx@sentry.io/yyy
+
+  # Optional: email address used for Basiq CDR connection.
+  # email: you@example.com
+
+
+# ── Data file locations ───────────────────────────────────────────────────────
+# All paths are relative to the folder containing the exe / server.py.
+# Defaults are shown — only override if you want a non-standard layout.
+data:
+  input_dir: Data/Raw Data
+  # database: Data/finance.db
+  # budgets_file: Data/budgets.json
+  # merchant_rules_file: Data/merchant_rules.json
+  # cache_file: Data/categorisation_cache.json
+  # commitments_file: Data/commitments.json
+  # transfer_candidates_file: Data/transfer_candidates.json
+  # overrides_file: Data/transaction_overrides.json
+  # run_metrics_file: Data/run_metrics.json
+  # modules_file: Data/modules.json
+  # loans_file: Data/loans.json
+  # manual_assets_file: Data/manual_assets.json
+  # portfolio_file: Data/portfolio.json
+  # bank_profiles_file: Data/bank_profiles.json
+
+
+# ── Bank accounts ─────────────────────────────────────────────────────────────
+# Add one entry per account. The key is used internally; friendly_name appears
+# in the UI. Supported types:
+#   anz_csv                — ANZ Internet Banking CSV export
+#   anz_plus_pdf           — ANZ Plus app PDF statement
+#   anz_access_advantage   — ANZ branch / Access Advantage PDF statement
+#   latitude_html          — 28 Degrees / Latitude HTML statement
+#   latitude_pdf           — 28 Degrees / Latitude PDF statement
+#   paypal_csv             — PayPal activity CSV export
+#   revolut_csv            — Revolut CSV export
+#   wise_pdf               — Wise PDF statement
+#   commbank_csv           — CommBank / CBA NetBank CSV export
+#   westpac_csv            — Westpac Online Banking CSV export
+#   nab_csv                — NAB Internet Banking CSV export
+#   ofx                    — OFX / QFX file (CommBank OFX, Westpac OFX, etc.)
+#
+# Most formats are auto-detected from file content — you only need to set type
+# explicitly if auto-detection gets it wrong, or to give the account a friendly name.
+accounts:
+  everyday:
+    friendly_name: "Everyday Account"
+    bank: ANZ
+    type: anz_csv
+    bsb: "012-345"          # optional — used for reconciliation
+    account_number: "123456789"   # optional
+  savings:
+    friendly_name: "Savings Account"
+    bank: ANZ
+    type: anz_plus_pdf
+  credit_card:
+    friendly_name: "28 Degrees"
+    bank: Latitude
+    type: latitude_html
+  paypal:
+    friendly_name: "PayPal"
+    bank: PayPal
+    type: paypal_csv
+  # CommBank example:
+  # cba_everyday:
+  #   friendly_name: "CommBank Everyday"
+  #   bank: CommBank
+  #   type: commbank_csv
+  # Westpac example:
+  # westpac_choice:
+  #   friendly_name: "Westpac Choice"
+  #   bank: Westpac
+  #   type: westpac_csv
+  # NAB example:
+  # nab_everyday:
+  #   friendly_name: "NAB Everyday"
+  #   bank: NAB
+  #   type: nab_csv
+  # CommBank OFX example:
+  # cba_ofx:
+  #   friendly_name: "CommBank (OFX)"
+  #   bank: CommBank
+  #   type: ofx
+
+
+# ── Own accounts (for transfer detection) ─────────────────────────────────────
+# List the friendly_names of accounts that belong to you.
+# Transfers between these accounts are auto-confirmed as internal.
+own_accounts:
+  - "Everyday Account"
+  - "Savings Account"
+
+
+# ── Income recognition ────────────────────────────────────────────────────────
+income:
+  # Your name as it appears in bank transaction descriptions (UPPERCASE).
+  account_holder_name: "YOUR NAME"
+
+  # Words that indicate a salary/wage credit (matched case-insensitively).
+  income_keywords:
+    - "SALARY"
+    - "PAYROLL"
+    - "WAGES"
+
+  # Words that indicate trust distribution income.
+  trust_keywords: []
+    # - "TRUSTEE"
+    # - "DISTRIBUTION"
+
+  # Specific payer names to always categorise as Income (UPPERCASE fragments).
+  known_income_payers: []
+    # - "ACME PTY LTD"
+    # - "EMPLOYER NAME"
+
+
+# ── Board & lodging income ────────────────────────────────────────────────────
+# Income received from someone boarding in your home (separate from salary).
+board_income:
+  payers: []
+    # - "JOHN SMITH"
+  note_keywords: []
+    # - "BOARD"
+    # - "RENT"
+
+
+# ── Business & tax ────────────────────────────────────────────────────────────
+business:
+  # Your business or company name (UPPERCASE) — used to detect reimbursements.
+  company_name: ""
+
+  # Keywords in transaction descriptions that indicate a business expense.
+  expense_keywords: []
+    # - "AWS"
+    # - "ADOBE"
+
+  # Merchant names always treated as business expenses.
+  known_business_merchants: []
+    # - "OFFICEWORKS"
+    # - "BUNNINGS"
+
+  # Keywords that indicate a business reimbursement credit.
+  reimbursement_keywords: []
+    # - "REIMBURSEMENT"
+    # - "EXPENSE CLAIM"
+
+
+# ── Business export account codes (Xero / MYOB) ──────────────────────────────
+# Maps PFA category names to accounting software account codes.
+business_export:
+  account_codes:
+    "Dining Out":      "420"
+    "Transport":       "449"
+    "Office Supplies": "420"
+    "Software":        "404"
+    "Travel":          "455"
+    "Mobile Phone":    "489"
+    # Add your own mappings here
+
+
+# ── Family loans ──────────────────────────────────────────────────────────────
+# People you lend money to or borrow from. Used to classify loan transactions.
+family_loans:
+  contacts: []
+    # - name: "Jane Smith"
+    #   relationship: "sibling"
+
+
+# ── Gift income ───────────────────────────────────────────────────────────────
+gifts:
+  received_keywords: []
+    # - "BIRTHDAY"
+    # - "GIFT"
+
+
+# ── Merchant category overrides ───────────────────────────────────────────────
+# Map merchant name fragments (case-insensitive) to categories.
+# These take priority over AI categorisation and learned rules.
+# Format:  "MERCHANT FRAGMENT": "Category Name"
+# Category names must match those in the app (see Settings → Categories).
+merchant_categories:
+  # ── Groceries ────────────────────────
+  "WOOLWORTHS":       "Groceries"
+  "COLES":            "Groceries"
+  "ALDI":             "Groceries"
+  "IGA ":             "Groceries"
+  "HARRIS FARM":      "Groceries"
+
+  # ── Dining Out ───────────────────────
+  "MCDONALD":         "Dining Out"
+  "KFC ":             "Dining Out"
+  "SUBWAY ":          "Dining Out"
+  "UBER EATS":        "Dining Out"
+  "DOORDASH":         "Dining Out"
+  "MENULOG":          "Dining Out"
+
+  # ── Transport ────────────────────────
+  "UBER ":            "Transport"
+  "OPal":             "Transport"
+  "AMPOL":            "Transport"
+  "BP ":              "Transport"
+  "7-ELEVEN":         "Transport"
+
+  # ── Utilities ────────────────────────
+  "AGL ":             "Utilities"
+  "ORIGIN ENERGY":    "Utilities"
+  "SYDNEY WATER":     "Utilities"
+  "AUSGRID":          "Utilities"
+
+  # ── Subscriptions ────────────────────
+  "NETFLIX":          "Subscriptions"
+  "SPOTIFY":          "Subscriptions"
+  "APPLE.COM/BILL":   "Subscriptions"
+  "GOOGLE *":         "Subscriptions"
+  "AMAZON PRIME":     "Subscriptions"
+
+  # ── Health ───────────────────────────
+  "CHEMIST WAREHOUSE": "Health"
+  "PRICELINE":        "Health"
+  "MEDICARE":         "Health"
+  "BUPA ":            "Health"
+
+  # ── Add your own below ───────────────
+
+
+# ── Transactions to exclude from analysis ────────────────────────────────────
+# Transactions matching these patterns are imported but excluded from spend
+# reports and budget calculations (e.g. large one-off items that skew averages).
+exclude_from_analysis: []
+  # - account: "Everyday Account"
+  #   description_contains: "LARGE ONE-OFF PURCHASE"
+
+
+# ── AI backend ───────────────────────────────────────────────────────────────
+# "claude" (default) — uses Anthropic API; requires ANTHROPIC_API_KEY env var.
+# "ollama"           — local LLM via Ollama; no API key needed.
+# ai_backend: claude
+
+# Ollama settings (only used when ai_backend is "ollama"):
+# ollama_url:   http://localhost:11434
+# ollama_model: llama3
+
+# Model overrides (advanced — defaults are fine for most users):
+# models:
+#   categoriser: claude-haiku-4-5-20251001
+
+
+# ── Basiq CDR (open banking) ──────────────────────────────────────────────────
+# Optional: connect to Australian banks via Consumer Data Right without CSV exports.
+# Requires a Basiq developer account — set BASIQ_API_KEY as an environment variable,
+# NOT here. Then add your email below.
+# basiq:
+#   email: you@example.com

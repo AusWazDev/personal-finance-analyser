@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <title>Year on Year — Personal Finance Analyser</title>
+  <style>
+    .view-toggle{display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content}
+    .view-toggle a{padding:8px 18px;border:none;background:var(--surface-2);color:var(--text-2);font-size:.82rem;font-weight:600;cursor:pointer;text-decoration:none;white-space:nowrap;transition:background .15s}
+    .view-toggle a.active{background:var(--accent);color:#fff}
+    .view-toggle a:hover:not(.active){background:var(--border);color:var(--text-1)}
+    .period-nav{display:flex;align-items:center;gap:12px}
+    .period-nav a{padding:6px 14px;border:1px solid var(--border);border-radius:8px;color:var(--text-2);text-decoration:none;font-size:.82rem;font-weight:600;transition:all .15s}
+    .period-nav a:hover{border-color:var(--accent);color:var(--accent)}
+    .period-nav .period-name{font-size:1rem;font-weight:700;color:var(--text-1);min-width:160px;text-align:center}
+    .controls-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+    .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+    @media(max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:500px){.kpi-row{grid-template-columns:1fr 1fr}}
+    .kpi-card{background:var(--surface-1);border-radius:12px;padding:18px 20px;border:1px solid var(--border)}
+    .kpi-card .lbl{font-size:.7rem;color:var(--text-2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+    .kpi-card .val{font-size:1.5rem;font-weight:700;color:var(--text-1);line-height:1}
+    .kpi-card .sub{font-size:.75rem;color:var(--text-2);margin-top:4px}
+    .up{color:#ef4444}
+    .down{color:#22c55e}
+    .neutral{color:var(--text-2)}
+    .chart-panel{background:var(--surface-1);border-radius:12px;padding:20px;border:1px solid var(--border);margin-bottom:20px}
+    .chart-panel h3{margin:0 0 14px;font-size:.85rem;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+    .cmp-table{width:100%;border-collapse:collapse;font-size:.84rem}
+    .cmp-table th{text-align:left;padding:8px 10px;font-size:.72rem;color:var(--text-2);font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border);white-space:nowrap}
+    .cmp-table th.r,.cmp-table td.r{text-align:right}
+    .cmp-table td{padding:9px 10px;border-bottom:1px solid var(--border-2);vertical-align:middle}
+    .cmp-table tr:last-child td{border-bottom:none}
+    .cmp-table tr:hover td{background:rgba(42,157,143,.05)}
+    .cmp-table tfoot td{font-weight:700;color:var(--text-1);border-top:2px solid var(--border);border-bottom:none;padding-top:12px}
+    .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:middle;flex-shrink:0}
+    .cat-name{font-weight:500;color:var(--text-1)}
+    .bar-wrap{width:70px;height:5px;background:var(--surface-2);border-radius:3px;display:inline-block;vertical-align:middle}
+    .bar-fill{height:5px;border-radius:3px;background:var(--accent)}
+    .pct-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.74rem;font-weight:700;white-space:nowrap}
+    .pct-up{background:rgba(239,68,68,.12);color:#ef4444}
+    .pct-down{background:rgba(34,197,94,.12);color:#22c55e}
+    .pct-new{background:rgba(42,157,143,.12);color:var(--accent)}
+    .pct-gone{background:rgba(148,163,184,.12);color:var(--text-2)}
+    .empty-msg{padding:40px;text-align:center;color:var(--text-2);font-size:.9rem}
+    @media(max-width:700px){
+      .bar-wrap{display:none}
+      .cmp-table th.hide-sm,.cmp-table td.hide-sm{display:none}
+    }
+  </style>
+</head>
+<body>
+
+{% set active_section = 'data' %}
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>Year on Year</h1>
+  <p>Compare spending between {{ period_label }} and {{ prev_label }}.</p>
+</div>
+
+<!-- Controls -->
+<div class="controls-row">
+  <div class="view-toggle">
+    <a href="/year-comparison?view=month&period={{ period_param }}"
+       class="{{ 'active' if view == 'month' else '' }}">Monthly</a>
+    <a href="/year-comparison?view=fy&period={{ period_param if view == 'fy' else '' }}"
+       class="{{ 'active' if view == 'fy' else '' }}">Financial Year</a>
+  </div>
+  <div class="period-nav">
+    <a href="/year-comparison?view={{ view }}&period={{ prev_param }}">&#8592; Prev</a>
+    <span class="period-name">{{ period_label }}</span>
+    <a href="/year-comparison?view={{ view }}&period={{ next_param }}">Next &#8594;</a>
+  </div>
+</div>
+
+<!-- KPI Banner -->
+<div class="kpi-row">
+  <div class="kpi-card">
+    <div class="lbl">{{ period_label }}</div>
+    <div class="val">${{ "{:,.0f}".format(total_this) }}</div>
+    <div class="sub">total spending</div>
+  </div>
+  <div class="kpi-card">
+    <div class="lbl">{{ prev_label }}</div>
+    <div class="val">${{ "{:,.0f}".format(total_prev) }}</div>
+    <div class="sub">total spending</div>
+  </div>
+  <div class="kpi-card">
+    <div class="lbl">Difference</div>
+    <div class="val {{ 'up' if total_delta > 0 else ('down' if total_delta < 0 else 'neutral') }}">
+      {{ '+' if total_delta > 0 else '' }}${{ "{:,.0f}".format(total_delta|abs) }}
+    </div>
+    <div class="sub">{{ 'more' if total_delta > 0 else ('less' if total_delta < 0 else 'same') }} than prior period</div>
+  </div>
+  <div class="kpi-card">
+    <div class="lbl">Change</div>
+    {% if total_pct is not none %}
+    <div class="val {{ 'up' if total_pct > 0 else ('down' if total_pct < 0 else 'neutral') }}">
+      {{ '+' if total_pct > 0 else '' }}{{ "{:.1f}".format(total_pct) }}%
+    </div>
+    {% else %}
+    <div class="val neutral">—</div>
+    {% endif %}
+    <div class="sub">year-on-year</div>
+  </div>
+</div>
+
+<!-- Trend Chart -->
+<div class="chart-panel">
+  <h3>{% if view == 'month' %}12-Month Trend{% else %}Category Breakdown{% endif %}</h3>
+  <div id="yoy-chart" style="height:280px"></div>
+</div>
+
+<!-- Category Comparison Table -->
+<div class="card">
+  <div class="card-title">Spending by Category</div>
+  {% if rows %}
+  <div style="overflow-x:auto">
+  <table class="cmp-table">
+    <thead>
+      <tr>
+        <th>Category</th>
+        <th class="r">{{ period_label }}</th>
+        <th class="r hide-sm">{{ prev_label }}</th>
+        <th class="r">Change $</th>
+        <th class="r">Change %</th>
+        <th class="hide-sm" style="width:80px"></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% set max_amt = rows[0].this_amt if rows else 1 %}
+    {% for row in rows %}
+    <tr>
+      <td>
+        <span class="dot" style="background:{{ row.color }}"></span>
+        <span class="cat-name">{{ row.category }}</span>
+      </td>
+      <td class="r">${{ "{:,.0f}".format(row.this_amt) }}</td>
+      <td class="r hide-sm">
+        {% if row.prev_amt > 0 %}<span style="color:var(--text-2)">${{ "{:,.0f}".format(row.prev_amt) }}</span>{% else %}<span style="color:var(--text-2)">—</span>{% endif %}
+      </td>
+      <td class="r">
+        {% if row.delta != 0 %}
+        <span class="{{ 'up' if row.delta > 0 else 'down' }}">
+          {{ '+' if row.delta > 0 else '' }}${{ "{:,.0f}".format(row.delta|abs) }}
+        </span>
+        {% else %}
+        <span style="color:var(--text-2)">—</span>
+        {% endif %}
+      </td>
+      <td class="r">
+        {% if row.pct is not none %}
+          {% if row.prev_amt == 0 %}
+            <span class="pct-badge pct-new">New</span>
+          {% elif row.pct > 0 %}
+            <span class="pct-badge pct-up">+{{ "{:.0f}".format(row.pct) }}%</span>
+          {% elif row.pct < 0 %}
+            <span class="pct-badge pct-down">{{ "{:.0f}".format(row.pct) }}%</span>
+          {% else %}
+            <span style="color:var(--text-2)">0%</span>
+          {% endif %}
+        {% elif row.this_amt == 0 %}
+          <span class="pct-badge pct-gone">Gone</span>
+        {% else %}
+          <span class="pct-badge pct-new">New</span>
+        {% endif %}
+      </td>
+      <td class="hide-sm">
+        <div class="bar-wrap">
+          <div class="bar-fill" style="width:{{ [(row.this_amt / max_amt * 100) if max_amt > 0 else 0, 100]|min|int }}%"></div>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td>Total</td>
+        <td class="r">${{ "{:,.0f}".format(total_this) }}</td>
+        <td class="r hide-sm">${{ "{:,.0f}".format(total_prev) }}</td>
+        <td class="r {{ 'up' if total_delta > 0 else ('down' if total_delta < 0 else 'neutral') }}">
+          {{ '+' if total_delta > 0 else '' }}${{ "{:,.0f}".format(total_delta|abs) }}
+        </td>
+        <td class="r">
+          {% if total_pct is not none %}
+          <span class="pct-badge {{ 'pct-up' if total_pct > 0 else 'pct-down' }}">
+            {{ '+' if total_pct > 0 else '' }}{{ "{:.0f}".format(total_pct) }}%
+          </span>
+          {% endif %}
+        </td>
+        <td class="hide-sm"></td>
+      </tr>
+    </tfoot>
+  </table>
+  </div>
+  {% else %}
+  <div class="empty-msg">No spending data for {{ period_label }}.</div>
+  {% endif %}
+</div>
+
+{% if cat_monthly_json %}
+<!-- Per-Category Trend -->
+<div class="chart-panel" id="cat-trend-panel">
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap">
+    <h3 style="margin:0">Category Trend (24 months)</h3>
+    <select id="cat-picker" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-1);font-size:.82rem;cursor:pointer">
+      {% for row in rows %}
+      <option value="{{ row.category }}" style="color:{{ row.color }}">{{ row.category }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div id="cat-trend-chart" style="height:220px"></div>
+</div>
+{% endif %}
+
+<script>
+(function() {
+  var raw = {{ chart_json | safe }};
+  var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  var gridColor  = isDark ? '#1e3340' : '#e2e8f0';
+  var fontColor  = isDark ? '#94a3b8' : '#334155';
+  var paperBg    = 'transparent';
+
+  Plotly.newPlot('yoy-chart', [
+    {
+      type: 'bar', name: raw.series_prev,
+      x: raw.xlabels, y: raw.prev_vals,
+      marker: { color: isDark ? '#1e4d5a' : '#cbd5e1' },
+      hovertemplate: raw.series_prev + '<br>$%{y:,.0f}<extra></extra>'
+    },
+    {
+      type: 'bar', name: raw.series_this,
+      x: raw.xlabels, y: raw.this_vals,
+      marker: { color: '#2A9D8F' },
+      hovertemplate: raw.series_this + '<br>$%{y:,.0f}<extra></extra>'
+    }
+  ], {
+    barmode: 'group',
+    paper_bgcolor: paperBg, plot_bgcolor: paperBg,
+    font: { color: fontColor, size: 11 },
+    xaxis: { showgrid: false, zeroline: false, showline: false, tickangle: -30 },
+    yaxis: { gridcolor: gridColor, zeroline: false, showline: false,
+             tickprefix: '$', tickformat: ',.0f' },
+    legend: { orientation: 'h', y: 1.14, font: { size: 11 } },
+    margin: { l: 60, r: 20, t: 30, b: 60 },
+    height: 280
+  }, { responsive: true, displayModeBar: false });
+})();
+
+{% if cat_monthly_json %}
+(function() {
+  var catData = {{ cat_monthly_json | safe }};
+  var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  var gridColor = isDark ? '#1e3340' : '#e2e8f0';
+  var fontColor = isDark ? '#94a3b8' : '#334155';
+
+  function renderCatTrend(cat) {
+    var color = catData.colors[cat] || '#2A9D8F';
+    var vals = catData.months_raw.map(function(m) {
+      return catData.by_cat[cat] && catData.by_cat[cat][m] ? catData.by_cat[cat][m] : 0;
+    });
+    Plotly.react('cat-trend-chart', [{
+      type: 'bar', x: catData.months, y: vals,
+      marker: { color: color, opacity: 0.85 },
+      hovertemplate: '%{x}<br>$%{y:,.0f}<extra></extra>'
+    }], {
+      paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+      font: { color: fontColor, size: 11 },
+      xaxis: { showgrid: false, zeroline: false, showline: false, tickangle: -30 },
+      yaxis: { gridcolor: gridColor, zeroline: false, showline: false,
+               tickprefix: '$', tickformat: ',.0f' },
+      margin: { l: 60, r: 20, t: 10, b: 60 }, height: 220
+    }, { responsive: true, displayModeBar: false });
+  }
+
+  var picker = document.getElementById('cat-picker');
+  if (picker) {
+    renderCatTrend(picker.value);
+    picker.addEventListener('change', function() { renderCatTrend(this.value); });
+  }
+})();
+{% endif %}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Goals &amp; Loans — Personal Finance Analyser</title>
+  <style>
+    .goal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-bottom:8px}
+    .goal-card{background:#0f1923;border-radius:10px;padding:18px 20px;border:1px solid #2e4a5a}
+    .goal-card.inactive{opacity:.45}
+    .goal-name{font-weight:700;font-size:.97rem;margin-bottom:2px}
+    .goal-meta{font-size:.78rem;color:#64748b;margin-bottom:12px}
+    .progress-wrap{background:#2e4a5a;border-radius:6px;height:10px;margin-bottom:8px;overflow:hidden}
+    .progress-bar{height:10px;border-radius:6px;background:#2a9d8f;transition:width .3s}
+    .progress-bar.complete{background:#059669}
+    .goal-amounts{display:flex;justify-content:space-between;font-size:.82rem;color:#94a3b8;margin-bottom:10px}
+    .goal-amounts .pct{font-weight:700;color:#2a9d8f}
+    .goal-amounts .pct.complete{color:#059669}
+    .goal-eta{font-size:.78rem;color:#94a3b8;margin-bottom:10px}
+    .goal-actions{display:flex;gap:6px;justify-content:flex-end}
+    .btn-edit{background:transparent;color:#2a9d8f;border-color:#2a9d8f}
+    .btn-edit:hover{background:#2a9d8f;color:white}
+    tr.inactive td{opacity:.4}
+    .prog-cell{min-width:160px}
+    .prog-mini-wrap{background:#2e4a5a;border-radius:4px;height:7px;width:100%;overflow:hidden}
+    .prog-mini-bar{height:7px;border-radius:4px;background:#2a9d8f}
+    .prog-mini-bar.complete{background:#059669}
+    .prog-pct{font-size:.76rem;color:#2a9d8f;margin-top:3px}
+    .prog-pct.complete{color:#059669}
+    .cat-badge{font-size:.7rem;padding:2px 7px;border-radius:8px;background:#2A9D8F22;color:#2A9D8F;border:1px solid #2A9D8F44;font-weight:600}
+    /* Loans — transaction picker */
+    .picker-section{border-top:1px solid #2e4a5a;padding-top:14px;margin-top:4px}
+    .picker-lbl{font-size:.73rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;margin-top:10px}
+    .picker-lbl:first-child{margin-top:0}
+    .picker-loading,.picker-empty{font-size:.82rem;color:#64748b;padding:6px 0}
+    .picker-row{display:flex;align-items:flex-start;gap:10px;padding:7px 2px;border-bottom:1px solid #1a2e3a;cursor:pointer;border-radius:4px}
+    .picker-row:hover{background:rgba(42,157,143,.06)}
+    .picker-row input[type=checkbox]{margin-top:2px;accent-color:#2a9d8f;flex-shrink:0;width:15px;height:15px}
+    .picker-row-main{flex:1;min-width:0}
+    .picker-date{font-size:.76rem;color:#94a3b8;margin-right:4px}
+    .picker-desc{font-size:.82rem;color:#e2e8f0;word-break:break-word;display:block;margin-top:1px}
+    .picker-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;padding-left:8px}
+    .picker-amt{font-size:.85rem;font-weight:700;white-space:nowrap}
+    .picker-amt.pos{color:#4ade80}
+    .picker-amt.neg{color:#fb8500}
+    .picker-cat{font-size:.68rem;color:#64748b;white-space:nowrap}
+    /* Loans */
+    .direction-badge{font-size:.7rem;padding:2px 8px;border-radius:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+    .direction-badge.owe{background:#fb850022;color:#fb8500;border:1px solid #fb850044}
+    .direction-badge.lent{background:#05966922;color:#4ade80;border:1px solid #05966944}
+    .badge-warn{display:inline-block;background:#d97706;color:white;border-radius:10px;padding:1px 7px;font-size:.7rem;font-weight:700;margin-left:6px;vertical-align:middle}
+    .loan-card{background:#0f1923;border-radius:10px;padding:18px 20px;border:1px solid #2e4a5a}
+    .loan-card.complete{border-color:#05966966}
+    .loan-meta{font-size:.78rem;color:#64748b;margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .loan-outstanding{font-size:.85rem;margin-bottom:12px;color:#94a3b8}
+    .loan-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+    .btn-stmt{padding:4px 12px;border-radius:6px;cursor:pointer;font-size:.78rem;font-weight:600;border:1px solid #457b9d;background:transparent;color:#7dd3fc}
+    .btn-stmt:hover{background:#1d4e89;color:white}
+    .unlinked-card{background:#1a2c18;border:1px solid #2a5c2a;border-radius:10px;padding:16px 20px;margin-bottom:20px}
+    .unlinked-head{color:#4ade80;font-weight:700;font-size:.9rem;margin-bottom:12px}
+  </style>
+</head>
+<body>
+
+{% include 'partials/_nav.html' %}
+
+<!-- Section switcher -->
+<div class="tab-bar">
+  <button class="tab-btn" id="tab-goals" onclick="switchTab('goals')">Goals</button>
+  <button class="tab-btn" id="tab-loans" onclick="switchTab('loans')">Loans &amp; Advances{% if unlinked_count %}<span class="badge-warn">{{ unlinked_count }}</span>{% endif %}</button>
+</div>
+
+<!-- ===== GOALS SECTION ===== -->
+<div id="section-goals">
+
+<div class="header">
+  <h1>Financial Goals</h1>
+  <p>Track savings targets, contribution schedules, and progress toward financial milestones.</p>
+</div>
+
+<div class="summary-row">
+  <div class="summary-card">
+    <div class="lbl">Monthly contributions</div>
+    <div class="val">${{ "{:,.0f}".format(monthly_total) }}</div>
+    <div class="sub">${{ "{:,.0f}".format(monthly_total * 12) }} per year</div>
+  </div>
+  <div class="summary-card">
+    <div class="lbl">Active goals</div>
+    <div class="val">{{ active_count }}</div>
+    <div class="sub">{{ total_count }} total{% if total_count - active_count > 0 %} ({{ total_count - active_count }} paused){% endif %}</div>
+  </div>
+  <div class="summary-card">
+    <div class="lbl">Total saved</div>
+    <div class="val">${{ "{:,.0f}".format(total_saved) }}</div>
+    <div class="sub">of ${{ "{:,.0f}".format(total_target) }} target</div>
+  </div>
+  {% if nearest %}
+  <div class="summary-card">
+    <div class="lbl">Nearest milestone</div>
+    <div class="val" style="font-size:1.05rem">{{ nearest.name[:28] }}</div>
+    <div class="sub">{{ nearest.estimated_date or "—" }}{% if nearest.days_to_go is not none %} ({{ nearest.days_to_go }}d){% endif %}</div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-title">
+    <span>Goal Progress</span>
+    <button class="btn-add" onclick="openAddModal()">+ Add Goal</button>
+  </div>
+
+  {% if milestones %}
+  <div class="goal-grid">
+    {% for g in milestones %}
+    <div class="goal-card {{ '' if g.active else 'inactive' }}" id="gcard-{{ g.id }}">
+      <div class="goal-name">{{ g.name }}</div>
+      <div class="goal-meta">
+        <span class="cat-badge">{{ g.category }}</span>
+        &nbsp;{{ g.freq_label }} · {{ g.account or '—' }}
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-bar {{ 'complete' if g.pct >= 100 else '' }}"
+             style="width:{{ [g.pct, 100]|min }}%"></div>
+      </div>
+      <div class="goal-amounts">
+        <span>${{ "{:,.0f}".format(g.current_amount) }} of ${{ "{:,.0f}".format(g.target_amount) }}</span>
+        <span class="pct {{ 'complete' if g.pct >= 100 else '' }}">{{ g.pct }}%</span>
+      </div>
+      {% if g.auto_current is not none %}
+      <div style="font-size:.74rem;color:#64748b;margin-top:-4px;margin-bottom:8px;display:flex;align-items:center;gap:8px" title="Sum of credits to {{ g.account }} since goal creation — auto-calculated from transactions">
+        <span><span style="color:#4cc9f0">&#9679;</span> ${{ "{:,.0f}".format(g.auto_current) }} in {{ g.account }} (auto)</span>
+        <button class="btn-sm" style="padding:1px 8px;font-size:.7rem" onclick='useAutoAmount({{ g|tojson }})'>Use</button>
+      </div>
+      {% endif %}
+      {% if g.pct < 100 %}
+      <div class="goal-eta">
+        {% if g.estimated_date %}Est. completion: {{ g.estimated_date }}{% if g.days_to_go is not none %} ({{ g.days_to_go }} days){% endif %}
+        {% else %}No target date set{% endif %}
+        &nbsp;·&nbsp;${{ "{:,.2f}".format(g.remaining) }} remaining
+      </div>
+      {% else %}
+      <div class="goal-eta" style="color:#059669;font-weight:600">Goal reached!</div>
+      {% endif %}
+      <div class="goal-actions">
+        <button class="btn-sm btn-edit" onclick='openEditModal({{ g|tojson }})'>Edit</button>
+        <button class="btn-sm btn-del" onclick="delGoal('{{ g.id }}','{{ g.name|replace("'", "\\'") }}')">Del</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">No active goals yet. Click <strong>+ Add Goal</strong> to get started.</div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-title"><span>All Goals</span></div>
+  <input class="search-box" type="search" id="search-box" placeholder="Search goals…" oninput="filterTable()">
+
+  {% if items %}
+  <table id="goals-table">
+    <thead>
+      <tr>
+        <th>Name</th><th>Category</th><th>Progress</th><th>Contribution</th><th>Target date</th><th>Account</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in items %}
+    {% set pct = [[item.current_amount / item.target_amount * 100 if item.target_amount > 0 else 0, 0]|max, 100]|min %}
+    <tr id="row-{{ item.id }}" class="{{ '' if item.active else 'inactive' }}"
+        data-search="{{ item.name|lower }} {{ item.category|lower }} {{ (item.account or '')|lower }}">
+      <td style="font-weight:500">{{ item.name }}</td>
+      <td><span class="cat-badge">{{ item.category }}</span></td>
+      <td class="prog-cell">
+        <div class="prog-mini-wrap">
+          <div class="prog-mini-bar {{ 'complete' if pct >= 100 else '' }}" style="width:{{ pct }}%"></div>
+        </div>
+        <div class="prog-pct {{ 'complete' if pct >= 100 else '' }}">${{ "{:,.0f}".format(item.current_amount) }} / ${{ "{:,.0f}".format(item.target_amount) }}{% if item.auto_current is not none %} <span style="color:#4cc9f0;font-size:.7rem;margin-left:4px" title="${{ '{:,.0f}'.format(item.auto_current) }} credited to {{ item.account }} (auto)">&#9679;</span>{% endif %}</div>
+      </td>
+      <td>${{ "{:,.2f}".format(item.contribution_amount) }} {{ item.frequency }}</td>
+      <td style="color:#94a3b8;font-size:.83rem">{{ item.target_date or '—' }}</td>
+      <td style="font-size:.82rem;color:#64748b" title="{{ item.account or '' }}">
+        {{ (item.account or '—')[:22] }}{% if (item.account or '')|length > 22 %}…{% endif %}
+      </td>
+      <td style="white-space:nowrap;text-align:right">
+        <button class="btn-sm btn-edit" onclick='openEditModal({{ item|tojson }})'>Edit</button>
+        <button class="btn-sm btn-del" onclick="delGoal('{{ item.id }}','{{ item.name|replace("'", "\\'") }}')">Del</button>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No goals yet. Click <strong>+ Add Goal</strong> above to create your first goal.</div>
+  {% endif %}
+</div>
+
+</div><!-- /section-goals -->
+
+
+<!-- ===== LOANS SECTION ===== -->
+<div id="section-loans" style="display:none">
+
+<div class="header">
+  <h1>Loans &amp; Advances</h1>
+  <p>Track borrowed and lent amounts with a full repayment history and ad-hoc statements.</p>
+</div>
+
+<div class="summary-row">
+  <div class="summary-card">
+    <div class="lbl">I owe (outstanding)</div>
+    <div class="val" style="{{ 'color:#fb8500' if loans_owe_total > 0 else 'color:#059669' }}">${{ "{:,.2f}".format(loans_owe_total) }}</div>
+    <div class="sub">Remaining on loans you borrowed</div>
+  </div>
+  <div class="summary-card">
+    <div class="lbl">Owed to me (outstanding)</div>
+    <div class="val" style="{{ 'color:#4ade80' if loans_lent_total > 0 else '' }}">${{ "{:,.2f}".format(loans_lent_total) }}</div>
+    <div class="sub">Remaining on loans you advanced</div>
+  </div>
+  <div class="summary-card">
+    <div class="lbl">Active loans</div>
+    <div class="val">{{ loans_active }}</div>
+    <div class="sub">{{ loans|length }} total{% if loans|length - loans_active > 0 %} ({{ loans|length - loans_active }} complete){% endif %}</div>
+  </div>
+</div>
+
+{% if unlinked_txns %}
+<div class="unlinked-card">
+  <div class="unlinked-head">&#9888; {{ unlinked_count }} loan transaction{{ 's' if unlinked_count != 1 else '' }} found with no linked loan record</div>
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Description</th><th>Amount</th><th>Category</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for txn in unlinked_txns[:10] %}
+    <tr>
+      <td style="color:#94a3b8;font-size:.82rem">{{ txn.date }}</td>
+      <td style="font-size:.85rem">{{ txn.description }}</td>
+      <td style="font-weight:600">${{ "{:,.2f}".format(txn.amount|abs) }}</td>
+      <td><span class="cat-badge">{{ txn.category }}</span></td>
+      <td>
+        <button class="btn-sm btn-edit" onclick='prefillLoan({{ txn|tojson }})'>Set up loan</button>
+      </td>
+    </tr>
+    {% endfor %}
+    {% if unlinked_count > 10 %}
+    <tr><td colspan="5" style="color:#64748b;font-size:.8rem">… and {{ unlinked_count - 10 }} more</td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-title">
+    <span>Loan Progress</span>
+    <button class="btn-add" onclick="openAddLoanModal()">+ Add Loan</button>
+  </div>
+
+  {% if loans %}
+  <div class="goal-grid">
+    {% for loan in loans %}
+    {% set is_lent = loan.direction == 'owed_to_me' %}
+    <div class="loan-card {{ 'complete' if loan.status == 'complete' else '' }}">
+      <div class="goal-name">{{ loan.name }}</div>
+      <div class="loan-meta">
+        <span class="direction-badge {{ 'lent' if is_lent else 'owe' }}">{{ 'Owed to you' if is_lent else 'You owe' }}</span>
+        {{ loan.counterparty or '—' }}
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-bar {{ 'complete' if loan.pct >= 100 else '' }}" style="width:{{ loan.pct }}%"></div>
+      </div>
+      <div class="goal-amounts">
+        <span>${{ "{:,.2f}".format(loan.total_repaid) }} repaid of ${{ "{:,.2f}".format(loan.principal) }}</span>
+        <span class="pct {{ 'complete' if loan.pct >= 100 else '' }}">{{ loan.pct }}%</span>
+      </div>
+      <div class="loan-outstanding">
+        {% if loan.status == 'complete' %}
+        <span style="color:#059669;font-weight:700">&#10003; Paid in full{% if loan.completed_date %} &mdash; {{ loan.completed_date }}{% endif %}</span>
+        {% else %}
+        Outstanding: <strong style="color:#fb8500">${{ "{:,.2f}".format(loan.outstanding) }}</strong>
+        <span style="color:#64748b;font-size:.77rem">&nbsp;&middot;&nbsp;{{ loan.repayments|length }} payment{{ 's' if loan.repayments|length != 1 else '' }}</span>
+        {% endif %}
+      </div>
+      <div class="loan-actions">
+        <button class="btn-stmt" onclick="window.open('/loans/{{ loan.loan_id }}/statement','_blank')" title="Generate statement">&#128196; Statement</button>
+        <button class="btn-sm btn-edit" onclick='openEditLoanModal({{ loan.edit_data|tojson }})'>Edit</button>
+        <button class="btn-sm btn-del" onclick="delLoan('{{ loan.loan_id }}','{{ loan.name|replace("'","\\'")|e }}')">Del</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">No loans yet. Click <strong>+ Add Loan</strong> to get started.</div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-title"><span>All Loans</span></div>
+  <input class="search-box" type="search" id="loan-search" placeholder="Search loans…" oninput="filterLoans()">
+
+  {% if loans %}
+  <table id="loans-table">
+    <thead>
+      <tr>
+        <th>Name</th><th>Counterparty</th><th>Direction</th><th>Principal</th><th>Repaid</th><th>Outstanding</th><th>Status</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for loan in loans %}
+    {% set is_lent = loan.direction == 'owed_to_me' %}
+    <tr id="lrow-{{ loan.loan_id }}" data-search="{{ loan.name|lower }} {{ (loan.counterparty or '')|lower }}">
+      <td style="font-weight:500">{{ loan.name }}</td>
+      <td style="color:#94a3b8;font-size:.85rem">{{ loan.counterparty or '—' }}</td>
+      <td><span class="direction-badge {{ 'lent' if is_lent else 'owe' }}">{{ 'Owed to you' if is_lent else 'You owe' }}</span></td>
+      <td>${{ "{:,.2f}".format(loan.principal) }}</td>
+      <td>${{ "{:,.2f}".format(loan.total_repaid) }}</td>
+      <td style="{{ 'color:#059669;font-weight:600' if loan.status=='complete' else 'color:#fb8500;font-weight:600' }}">${{ "{:,.2f}".format(loan.outstanding) }}</td>
+      <td style="font-size:.82rem">
+        {% if loan.status == 'complete' %}<span style="color:#059669">&#10003; Complete</span>
+        {% else %}<span style="color:#fb8500">Active</span>{% endif %}
+      </td>
+      <td style="white-space:nowrap;text-align:right">
+        <button class="btn-stmt" onclick="window.open('/loans/{{ loan.loan_id }}/statement','_blank')" title="Statement">&#128196;</button>
+        <button class="btn-sm btn-edit" onclick='openEditLoanModal({{ loan.edit_data|tojson }})'>Edit</button>
+        <button class="btn-sm btn-del" onclick="delLoan('{{ loan.loan_id }}','{{ loan.name|replace("'","\\'")|e }}')">Del</button>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No loans yet.</div>
+  {% endif %}
+</div>
+
+</div><!-- /section-loans -->
+
+
+<!-- Goals modal -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h2 id="modal-title">Add Goal</h2>
+    <input type="hidden" id="ei" value="">
+    <div class="fr">
+      <label>Goal name</label>
+      <input type="text" id="f-name" placeholder="e.g. Emergency Fund, Holiday to Japan">
+    </div>
+    <div class="fr2">
+      <div class="fr">
+        <label>Category</label>
+        <select id="f-cat">
+          {% for cat in goal_categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="fr">
+        <label>Account (optional)</label>
+        <input type="text" id="f-acct" placeholder="e.g. ANZ Progress Saver">
+      </div>
+    </div>
+    <div class="fr2">
+      <div class="fr">
+        <label>Target amount ($)</label>
+        <input type="number" id="f-target" step="0.01" min="0" placeholder="0.00">
+      </div>
+      <div class="fr">
+        <label>Current amount ($)</label>
+        <input type="number" id="f-current" step="0.01" min="0" placeholder="0.00">
+      </div>
+    </div>
+    <div class="fr2">
+      <div class="fr">
+        <label>Contribution ($)</label>
+        <input type="number" id="f-contrib" step="0.01" min="0" placeholder="0.00">
+      </div>
+      <div class="fr">
+        <label>Frequency</label>
+        <select id="f-freq">
+          <option value="weekly">Weekly</option>
+          <option value="fortnightly">Fortnightly</option>
+          <option value="monthly" selected>Monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="annual">Annual</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr">
+      <label>Target date (optional)</label>
+      <input type="date" id="f-date">
+    </div>
+    <div class="fr">
+      <label>Notes (optional)</label>
+      <textarea id="f-notes" placeholder="Any notes…"></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveGoal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Loan modal -->
+<div class="modal-bg" id="loan-modal-bg">
+  <div class="modal" style="width:min(740px,95vw);max-height:92vh">
+    <h2 id="loan-modal-title">Add Loan</h2>
+    <input type="hidden" id="l-id" value="">
+    <div class="fr">
+      <label>Loan name</label>
+      <input type="text" id="l-name" placeholder="e.g. Mum — House Deposit, CommBank Personal Loan">
+    </div>
+    <div class="fr2">
+      <div class="fr">
+        <label>Direction</label>
+        <select id="l-direction">
+          <option value="owed_by_me">I borrowed (I owe)</option>
+          <option value="owed_to_me">I lent (owed to me)</option>
+        </select>
+      </div>
+      <div class="fr">
+        <label>Person</label>
+        <select id="l-contact" onchange="onContactChange()">
+          <option value="">— select —</option>
+          {% for cname in loan_contacts %}
+          <option value="{{ cname }}">{{ cname }}</option>
+          {% endfor %}
+          <option value="__unlisted__">Other / unlisted</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr" id="l-counterparty-row" style="display:none">
+      <label>Counterparty name</label>
+      <input type="text" id="l-counterparty" placeholder="e.g. John Smith">
+    </div>
+    <div class="fr2">
+      <div class="fr">
+        <label>Principal ($)</label>
+        <input type="number" id="l-principal" step="0.01" min="0" placeholder="0.00">
+      </div>
+      <div class="fr">
+        <label>Start date</label>
+        <input type="date" id="l-start">
+      </div>
+    </div>
+    <div class="fr">
+      <label>Notes (optional)</label>
+      <textarea id="l-notes" placeholder="Purpose, terms, any notes…"></textarea>
+    </div>
+    <!-- Transaction picker — shown when a known contact is selected -->
+    <div class="picker-section" id="l-picker-section" style="display:none">
+      <div id="l-picker-content"><div class="picker-loading">Loading transactions…</div></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeLoanModal()">Cancel</button>
+      <button class="btn-save" onclick="saveLoan()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Shared ───────────────────────────────────────────────────────────────────
+function toast(msg, ok) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = ok === false ? '#c95f43' : '#2a9d8f';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('section-goals').style.display = tab === 'goals' ? '' : 'none';
+  document.getElementById('section-loans').style.display = tab === 'loans' ? '' : 'none';
+  document.getElementById('tab-goals').classList.toggle('active', tab === 'goals');
+  document.getElementById('tab-loans').classList.toggle('active', tab === 'loans');
+  history.replaceState(null, '', tab === 'loans' ? '#loans' : '#goals');
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  switchTab(window.location.hash === '#loans' ? 'loans' : 'goals');
+});
+
+// ── Goals ─────────────────────────────────────────────────────────────────────
+function filterTable() {
+  const q = document.getElementById('search-box').value.toLowerCase();
+  document.querySelectorAll('#goals-table tbody tr').forEach(tr => {
+    tr.style.display = (!q || (tr.dataset.search || '').includes(q)) ? '' : 'none';
+  });
+}
+
+function openAddModal() {
+  document.getElementById('modal-title').textContent = 'Add Goal';
+  document.getElementById('ei').value = '';
+  ['f-name','f-target','f-current','f-contrib','f-date','f-acct','f-notes'].forEach(
+    id => document.getElementById(id).value = ''
+  );
+  document.getElementById('f-freq').value = 'monthly';
+  document.getElementById('f-cat').value = 'Savings';
+  document.getElementById('modal-bg').classList.add('open');
+  document.getElementById('f-name').focus();
+}
+
+function openEditModal(item) {
+  document.getElementById('modal-title').textContent = 'Edit Goal';
+  document.getElementById('ei').value = item.id;
+  document.getElementById('f-name').value    = item.name || '';
+  document.getElementById('f-cat').value     = item.category || 'Savings';
+  document.getElementById('f-target').value  = item.target_amount || '';
+  document.getElementById('f-current').value = item.current_amount || '';
+  document.getElementById('f-contrib').value = item.contribution_amount || '';
+  document.getElementById('f-freq').value    = item.frequency || 'monthly';
+  document.getElementById('f-date').value    = item.target_date || '';
+  document.getElementById('f-acct').value    = item.account || '';
+  document.getElementById('f-notes').value   = item.notes || '';
+  document.getElementById('modal-bg').classList.add('open');
+  document.getElementById('f-name').focus();
+}
+
+function closeModal() { document.getElementById('modal-bg').classList.remove('open'); }
+
+function saveGoal() {
+  const id     = document.getElementById('ei').value;
+  const name   = document.getElementById('f-name').value.trim();
+  const target = parseFloat(document.getElementById('f-target').value);
+  if (!name)                    { toast('Name is required', false); return; }
+  if (isNaN(target)||target < 0) { toast('Enter a valid target amount', false); return; }
+  const payload = {
+    id:                  id || null,
+    name,
+    category:            document.getElementById('f-cat').value,
+    target_amount:       target,
+    current_amount:      parseFloat(document.getElementById('f-current').value) || 0,
+    contribution_amount: parseFloat(document.getElementById('f-contrib').value) || 0,
+    frequency:           document.getElementById('f-freq').value,
+    target_date:         document.getElementById('f-date').value || null,
+    account:             document.getElementById('f-acct').value.trim(),
+    notes:               document.getElementById('f-notes').value.trim(),
+    active:              true,
+  };
+  fetch('/api/financial-goals', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload),
+  })
+    .then(r => r.json())
+    .then(d => { if (d.ok) { toast('Saved'); closeModal(); setTimeout(() => location.reload(), 500); }
+                 else toast(d.error || 'Error', false); })
+    .catch(() => toast('Network error', false));
+}
+
+function delGoal(id, name) {
+  if (!confirm('Delete "' + name + '"?')) return;
+  fetch('/api/financial-goals/' + id, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(d => { if (d.ok) { toast('Deleted'); setTimeout(() => location.reload(), 500); }
+                 else toast(d.error || 'Error', false); })
+    .catch(() => toast('Network error', false));
+}
+
+function useAutoAmount(goal) {
+  const fmt = v => '$' + Number(v).toLocaleString('en-AU', {maximumFractionDigits: 0});
+  if (!confirm('Set current amount for "' + goal.name + '" to ' + fmt(goal.auto_current) + '?')) return;
+  fetch('/api/financial-goals', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      id:                  goal.id,
+      name:                goal.name,
+      category:            goal.category || 'Savings',
+      target_amount:       goal.target_amount,
+      current_amount:      goal.auto_current,
+      contribution_amount: goal.contribution_amount || 0,
+      frequency:           goal.frequency || 'monthly',
+      target_date:         goal.target_date || '',
+      account:             goal.account || '',
+      notes:               goal.notes || '',
+    })
+  }).then(r => r.json())
+    .then(d => { if (d.ok) { toast('Current amount updated'); setTimeout(() => location.reload(), 500); }
+                 else toast(d.error || 'Save failed', false); })
+    .catch(() => toast('Network error', false));
+}
+
+document.getElementById('modal-bg').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-bg')) closeModal();
+});
+
+// ── Loans ─────────────────────────────────────────────────────────────────────
+function filterLoans() {
+  const q = document.getElementById('loan-search').value.toLowerCase();
+  document.querySelectorAll('#loans-table tbody tr').forEach(tr => {
+    tr.style.display = (!q || (tr.dataset.search || '').includes(q)) ? '' : 'none';
+  });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// txn pre-linked when modal opened from "Set up loan" button
+let _prefillTxn = null;
+
+function _resetLoanModal() {
+  document.getElementById('l-id').value       = '';
+  document.getElementById('l-name').value     = '';
+  document.getElementById('l-direction').value= 'owed_by_me';
+  document.getElementById('l-contact').value  = '';
+  document.getElementById('l-counterparty').value = '';
+  document.getElementById('l-counterparty-row').style.display = 'none';
+  document.getElementById('l-principal').value= '';
+  document.getElementById('l-start').value    = '';
+  document.getElementById('l-notes').value    = '';
+  document.getElementById('l-picker-section').style.display = 'none';
+  document.getElementById('l-picker-content').innerHTML = '<div class="picker-loading">Loading transactions…</div>';
+}
+
+function openAddLoanModal() {
+  _prefillTxn = null;
+  _resetLoanModal();
+  document.getElementById('loan-modal-title').textContent = 'Add Loan';
+  document.getElementById('loan-modal-bg').classList.add('open');
+  document.getElementById('l-name').focus();
+}
+
+function openEditLoanModal(loan) {
+  _prefillTxn = null;
+  _resetLoanModal();
+  document.getElementById('loan-modal-title').textContent = 'Edit Loan';
+  document.getElementById('l-id').value         = loan.loan_id || '';
+  document.getElementById('l-name').value       = loan.name || '';
+  document.getElementById('l-direction').value  = loan.direction || 'owed_by_me';
+  document.getElementById('l-principal').value  = loan.principal || '';
+  document.getElementById('l-start').value      = loan.start_date || '';
+  document.getElementById('l-notes').value      = loan.notes || '';
+
+  const contactName = loan.contact_name || '';
+  if (contactName) {
+    document.getElementById('l-contact').value = contactName;
+    document.getElementById('l-counterparty-row').style.display = 'none';
+  } else {
+    document.getElementById('l-contact').value = '__unlisted__';
+    document.getElementById('l-counterparty').value = loan.counterparty || '';
+    document.getElementById('l-counterparty-row').style.display = '';
+  }
+
+  document.getElementById('loan-modal-bg').classList.add('open');
+  document.getElementById('l-name').focus();
+
+  if (contactName) {
+    loadLoanCandidates(
+      loan.linked_receipt_txn_ids || [],
+      loan.linked_repayment_txn_ids || [],
+    );
+  }
+}
+
+function prefillLoan(txn) {
+  _prefillTxn = txn;
+  openAddLoanModal();
+  document.getElementById('l-principal').value = Math.abs(parseFloat(txn.amount || 0)).toFixed(2);
+  document.getElementById('l-start').value     = (txn.date || '').substring(0, 10);
+  document.getElementById('l-direction').value =
+    txn.category === 'Family Loan Repayment' ? 'owed_by_me' : 'owed_to_me';
+}
+
+function onContactChange() {
+  const contact = document.getElementById('l-contact').value;
+  const cpRow   = document.getElementById('l-counterparty-row');
+  const section = document.getElementById('l-picker-section');
+  if (contact === '__unlisted__') {
+    document.getElementById('l-counterparty').value = '';
+    cpRow.style.display = '';
+    section.style.display = 'none';
+  } else if (contact) {
+    document.getElementById('l-counterparty').value = contact;
+    cpRow.style.display = 'none';
+    loadLoanCandidates();
+  } else {
+    cpRow.style.display = 'none';
+    section.style.display = 'none';
+  }
+}
+
+function _renderCandidates(receipts, repayments) {
+  let html = '<div class="picker-lbl">Loan receipt(s) — money you received</div>';
+  if (!receipts.length) {
+    html += '<div class="picker-empty">No matching receipt transactions found yet — they will appear here once imported.</div>';
+  } else {
+    receipts.forEach(r => {
+      html += `<label class="picker-row">
+        <input type="checkbox" class="l-receipt-cb" value="${escHtml(r.txn_id)}" data-amount="${Math.abs(r.amount)}">
+        <span class="picker-row-main">
+          <span class="picker-date">${escHtml(r.date)}</span>
+          <span class="picker-desc">${escHtml(r.description||'')}</span>
+        </span>
+        <span class="picker-right">
+          <span class="picker-amt pos">+$${Math.abs(r.amount).toFixed(2)}</span>
+          <span class="picker-cat">${escHtml(r.category||'')}</span>
+        </span>
+      </label>`;
+    });
+  }
+  html += '<div class="picker-lbl">Repayments — money you paid back</div>';
+  if (!repayments.length) {
+    html += '<div class="picker-empty">No matching repayment transactions found yet — they will appear here once imported.</div>';
+  } else {
+    repayments.forEach(r => {
+      html += `<label class="picker-row">
+        <input type="checkbox" class="l-repay-cb" value="${escHtml(r.txn_id)}" data-amount="${Math.abs(r.amount)}">
+        <span class="picker-row-main">
+          <span class="picker-date">${escHtml(r.date)}</span>
+          <span class="picker-desc">${escHtml(r.description||'')}</span>
+        </span>
+        <span class="picker-right">
+          <span class="picker-amt neg">-$${Math.abs(r.amount).toFixed(2)}</span>
+          <span class="picker-cat">${escHtml(r.category||'')}</span>
+        </span>
+      </label>`;
+    });
+  }
+  return html;
+}
+
+function loadLoanCandidates(preReceipts = [], preRepayments = []) {
+  const contact = document.getElementById('l-contact').value;
+  if (!contact || contact === '__unlisted__') return;
+  const section  = document.getElementById('l-picker-section');
+  const content  = document.getElementById('l-picker-content');
+  section.style.display = '';
+  content.innerHTML = '<div class="picker-loading">Loading transactions…</div>';
+
+  fetch('/api/loan-candidates', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({contact_name: contact}),
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) { content.innerHTML = '<div class="picker-empty">Error loading transactions.</div>'; return; }
+      content.innerHTML = _renderCandidates(d.receipts, d.repayments);
+
+      // Pre-check already-linked txn_ids (edit mode)
+      preReceipts.forEach(id => {
+        const cb = content.querySelector(`.l-receipt-cb[value="${id}"]`);
+        if (cb) cb.checked = true;
+      });
+      preRepayments.forEach(id => {
+        const cb = content.querySelector(`.l-repay-cb[value="${id}"]`);
+        if (cb) cb.checked = true;
+      });
+
+      // Pre-check the transaction that triggered "Set up loan" (if any)
+      if (_prefillTxn) {
+        const cb = content.querySelector(`[value="${_prefillTxn.txn_id}"]`);
+        if (cb) cb.checked = true;
+      }
+
+      // Auto-fill principal from sum of checked receipts when field is empty
+      content.querySelectorAll('.l-receipt-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const pField = document.getElementById('l-principal');
+          if (pField.value) return;
+          const total = [...content.querySelectorAll('.l-receipt-cb:checked')]
+            .reduce((s, c) => s + parseFloat(c.dataset.amount||0), 0);
+          if (total > 0) pField.value = total.toFixed(2);
+        });
+      });
+    })
+    .catch(() => { content.innerHTML = '<div class="picker-empty">Network error.</div>'; });
+}
+
+function closeLoanModal() { document.getElementById('loan-modal-bg').classList.remove('open'); }
+
+function saveLoan() {
+  const id        = document.getElementById('l-id').value;
+  const name      = document.getElementById('l-name').value.trim();
+  const principal = parseFloat(document.getElementById('l-principal').value);
+  if (!name)                          { toast('Name is required', false); return; }
+  if (isNaN(principal)||principal<=0) { toast('Enter a valid principal amount', false); return; }
+
+  const contact      = document.getElementById('l-contact').value;
+  const isKnown      = contact && contact !== '__unlisted__';
+  const counterparty = isKnown
+    ? contact
+    : document.getElementById('l-counterparty').value.trim();
+
+  const receiptIds   = [...document.querySelectorAll('.l-receipt-cb:checked')].map(c => c.value);
+  const repaymentIds = [...document.querySelectorAll('.l-repay-cb:checked')].map(c => c.value);
+  const direction    = document.getElementById('l-direction').value;
+
+  const payload = {
+    loan_id:                   id || null,
+    name,
+    direction,
+    counterparty,
+    contact_name:              isKnown ? contact : '',
+    principal,
+    start_date:                document.getElementById('l-start').value || null,
+    notes:                     document.getElementById('l-notes').value.trim(),
+    linked_receipt_txn_ids:    receiptIds,
+    linked_repayment_txn_ids:  repaymentIds,
+    // Keep legacy filter fields so statement page still works for existing records
+    category_filter:           direction === 'owed_by_me' ? 'Family Loan Repayment' : 'Family Loan Received',
+    description_filter:        '',
+    receipt_filter:            '',
+  };
+  fetch('/api/loans', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload),
+  })
+    .then(r => r.json())
+    .then(d => { if (d.ok) { toast('Saved'); closeLoanModal(); setTimeout(() => location.reload(), 500); }
+                 else toast(d.error || 'Error', false); })
+    .catch(() => toast('Network error', false));
+}
+
+function delLoan(id, name) {
+  if (!confirm('Delete loan "' + name + '"?')) return;
+  fetch('/api/loans/' + id, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(d => { if (d.ok) { toast('Deleted'); setTimeout(() => location.reload(), 500); }
+                 else toast(d.error || 'Error', false); })
+    .catch(() => toast('Network error', false));
+}
+
+document.getElementById('loan-modal-bg').addEventListener('click', e => {
+  if (e.target === document.getElementById('loan-modal-bg')) closeLoanModal();
+});
+</script>
+</body>
+</html>

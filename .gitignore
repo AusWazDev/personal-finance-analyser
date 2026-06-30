@@ -1,0 +1,38 @@
+# ── Secrets / credentials ─────────────────────────────────────
+.env
+config.local.yaml
+config.private.yaml
+
+# ── Personal config (contains BSBs, account numbers, names — never commit)
+# Distribute config.yaml.example instead
+config.yaml
+
+# ── Financial data (sensitive, personal — never commit)
+Data/
+*.db
+
+# ── Runtime logs
+server_run.log
+*.log
+
+# ── Claude Code context (local dev only)
+CLAUDE.md
+.claude/
+
+# ── Generated outputs (reproducible from source data)
+reports/
+
+# ── Backups and large archives
+*.zip
+
+# ── Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/

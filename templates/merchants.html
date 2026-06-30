@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Merchant Analytics — Personal Finance Analyser</title>
+  <style>
+    .controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+    .search-box{background:#1d3540;border:1px solid #2e4a5a;color:#e2e8f0;border-radius:8px;padding:8px 14px;font-size:.85rem;width:220px}
+    .search-box:focus{outline:none;border-color:#2a9d8f}
+    .cat-select{background:#1d3540;border:1px solid #2e4a5a;color:#e2e8f0;border-radius:8px;padding:8px 12px;font-size:.82rem;cursor:pointer}
+    .sort-group{display:flex;gap:6px;margin-left:auto}
+    .sort-btn{padding:6px 14px;border-radius:8px;border:1px solid #2e4a5a;background:transparent;color:#94a3b8;font-size:.78rem;font-weight:600;cursor:pointer}
+    .sort-btn.active{background:#2A9D8F;color:white;border-color:#2A9D8F}
+    .sort-btn:hover:not(.active){border-color:#2A9D8F;color:#2A9D8F}
+    .stats-row{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap}
+    .stat-card{background:#1d3540;border-radius:10px;padding:16px 22px;flex:1;min-width:140px}
+    .stat-card .lbl{font-size:.7rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+    .stat-card .val{font-size:1.3rem;font-weight:700;color:#e2e8f0}
+    .merch-table{width:100%;border-collapse:collapse;font-size:.85rem}
+    .merch-table th{text-align:left;padding:8px 10px;font-size:.73rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #2e4a5a;white-space:nowrap}
+    .merch-table th.r,.merch-table td.r{text-align:right}
+    .merch-table tr:hover td{background:#1d3540}
+    .merch-table td{padding:9px 10px;border-bottom:1px solid #1a2e3a;vertical-align:middle}
+    .merch-name{font-weight:600;color:#e2e8f0;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .merch-name a{color:inherit;text-decoration:none}
+    .merch-name a:hover{color:#2a9d8f}
+    .cat-badge{font-size:.68rem;padding:2px 8px;border-radius:8px;background:#0f1923;color:#94a3b8;white-space:nowrap}
+    .bar-cell{width:90px}
+    .spend-bar{background:#2e4a5a;border-radius:4px;height:8px;overflow:hidden;position:relative}
+    .spend-bar-fill{height:100%;background:#2A9D8F;border-radius:4px;transition:width .2s}
+    .spark-cell{width:72px}
+    .spark-svg{display:block}
+    .no-results{padding:32px;text-align:center;color:#4a6070;font-size:.9rem}
+    @media(max-width:700px){
+      .bar-cell,.spark-cell{display:none}
+      .merch-name{max-width:160px}
+    }
+  </style>
+</head>
+<body>
+
+{% set active_tab = 'merchants' %}
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>Merchant Analytics</h1>
+  <p>Spending breakdown by merchant — sort by total spend, visit frequency, or average transaction size.</p>
+</div>
+
+<!-- Stats -->
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="lbl">Unique Merchants</div>
+    <div class="val" id="stat-count">{{ merchant_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="lbl">Total Spend</div>
+    <div class="val">${{ "{:,.0f}".format(total_spend) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="lbl">Showing</div>
+    <div class="val" id="stat-showing">{{ merchant_count }}</div>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="card" style="padding-bottom:0">
+  <div class="controls">
+    <input type="search" class="search-box" id="search" placeholder="Search merchants…" oninput="render()" />
+    <select class="cat-select" id="cat-filter" onchange="render()">
+      <option value="">All categories</option>
+      {% for c in cats %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+    </select>
+    <div class="sort-group">
+      <button class="sort-btn active" id="sb-total"  onclick="setSort('total')">Total Spend</button>
+      <button class="sort-btn"        id="sb-visits" onclick="setSort('visits')">Frequency</button>
+      <button class="sort-btn"        id="sb-avg"    onclick="setSort('avg_amt')">Avg Amount</button>
+      <button class="sort-btn"        id="sb-last"   onclick="setSort('last_date')">Last Seen</button>
+    </div>
+  </div>
+
+  <div style="overflow-x:auto">
+    <table class="merch-table">
+      <thead>
+        <tr>
+          <th>Merchant</th>
+          <th>Category</th>
+          <th class="r">Visits</th>
+          <th class="r">Avg</th>
+          <th class="r">Max</th>
+          <th class="r">Last Seen</th>
+          <th class="r">Total Spend</th>
+          <th class="bar-cell"></th>
+          <th class="spark-cell" title="Last 6 months spend">6-mo</th>
+        </tr>
+      </thead>
+      <tbody id="merch-tbody"></tbody>
+    </table>
+    <div id="no-results" class="no-results" style="display:none">No merchants match your search.</div>
+  </div>
+</div>
+
+<script>
+var ALL   = {{ merchants_json|safe }};
+var MONTHS = {{ months_json|safe }};
+var MAX_TOTAL = ALL.length ? Math.max.apply(null, ALL.map(function(m){ return m.total; })) : 1;
+var sortKey = 'total';
+
+function fmt(n)  { return '$' + n.toLocaleString('en-AU', {minimumFractionDigits:0, maximumFractionDigits:0}); }
+function fmtD(n) { return '$' + n.toLocaleString('en-AU', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmtDate(s) {
+  if (!s) return '—';
+  var p = s.split('-');
+  var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return p[2].replace(/^0/,'') + ' ' + mon[parseInt(p[1])-1] + ' ' + p[0];
+}
+
+function setSort(key) {
+  sortKey = key;
+  ['total','visits','avg_amt','last_date'].forEach(function(k) {
+    document.getElementById('sb-' + (k==='avg_amt'?'avg':k==='last_date'?'last':k)).classList.toggle('active', k===key);
+  });
+  render();
+}
+
+function sparkSVG(vals) {
+  var w=72, h=24, n=vals.length;
+  if (!n) return '<svg width="'+w+'" height="'+h+'"></svg>';
+  var max = Math.max.apply(null,vals) || 1;
+  var bw = Math.floor(w/n) - 2;
+  var bars = vals.map(function(v,i){
+    var bh = Math.max(2, Math.round((v/max)*(h-4)));
+    var x = i*(bw+2);
+    var y = h - bh;
+    var fill = v > 0 ? '#2A9D8F' : '#2e4a5a';
+    return '<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+bh+'" fill="'+fill+'" rx="1"/>';
+  }).join('');
+  return '<svg class="spark-svg" width="'+w+'" height="'+h+'">' + bars + '</svg>';
+}
+
+function render() {
+  var q   = document.getElementById('search').value.trim().toUpperCase();
+  var cat = document.getElementById('cat-filter').value;
+
+  var list = ALL.filter(function(m) {
+    if (cat && m.category !== cat) return false;
+    if (q && m.name.toUpperCase().indexOf(q) === -1 && m.category.toUpperCase().indexOf(q) === -1) return false;
+    return true;
+  });
+
+  list.sort(function(a,b) {
+    if (sortKey === 'last_date') return b.last_date > a.last_date ? 1 : -1;
+    return b[sortKey] - a[sortKey];
+  });
+
+  document.getElementById('stat-showing').textContent = list.length;
+  document.getElementById('no-results').style.display = list.length ? 'none' : 'block';
+
+  var html = list.map(function(m) {
+    var barW = Math.round((m.total / MAX_TOTAL) * 100);
+    var txnUrl = '/transactions?q=' + encodeURIComponent(m.name);
+    return '<tr>' +
+      '<td class="merch-name"><a href="'+txnUrl+'" title="View transactions">'+
+        m.name.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</a></td>' +
+      '<td><span class="cat-badge">'+m.category+'</span></td>' +
+      '<td class="r">'+m.visits+'</td>' +
+      '<td class="r">'+fmtD(m.avg_amt)+'</td>' +
+      '<td class="r">'+fmtD(m.max_amt)+'</td>' +
+      '<td class="r" style="color:#94a3b8;font-size:.8rem">'+fmtDate(m.last_date)+'</td>' +
+      '<td class="r" style="font-weight:700">'+fmt(m.total)+'</td>' +
+      '<td class="bar-cell"><div class="spend-bar"><div class="spend-bar-fill" style="width:'+barW+'%"></div></div></td>' +
+      '<td class="spark-cell">'+sparkSVG(m.sparkline)+'</td>' +
+      '</tr>';
+  }).join('');
+
+  document.getElementById('merch-tbody').innerHTML = html || '';
+}
+
+render();
+</script>
+</body>
+</html>

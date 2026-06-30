@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Help — Personal Finance Analyser</title>
+  <style>
+    .page-wrap { max-width: 980px; margin: 0 auto; }
+    {% if embed %}
+    body { padding: 0 !important; }
+    .page-wrap { padding: 10px 14px !important; }
+    .tab-bar { margin-top: 0 !important; }
+    {% endif %}
+    .page-title { font-size: 1.55rem; font-weight: 700; color: #2a9d8f; margin-bottom: 6px; }
+    .page-subtitle { font-size: .92rem; color: #64748b; margin-bottom: 20px; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .help-section { background: #1d3540; border-radius: 12px; padding: 24px 28px; margin-bottom: 18px; border: 1px solid #2e4a5a; }
+    .help-section h3 { font-size: 1rem; font-weight: 700; color: #e2e8f0; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    .help-section h3 .badge { font-size: .7rem; font-weight: 600; background: rgba(42,157,143,.15); color: #2a9d8f; padding: 2px 8px; border-radius: 4px; letter-spacing: .04em; text-transform: uppercase; }
+    .help-section p { font-size: .9rem; line-height: 1.65; color: #94a3b8; margin-bottom: 10px; }
+    .help-section p:last-child { margin-bottom: 0; }
+    .help-section ul { padding-left: 20px; margin-top: 6px; margin-bottom: 0; }
+    .help-section li { font-size: .88rem; line-height: 1.6; color: #7a9bb5; margin-bottom: 5px; }
+    .help-section li:last-child { margin-bottom: 0; }
+    .help-section code { background: #0f1923; border: 1px solid #2e4a5a; border-radius: 4px; padding: 1px 6px; font-size: .83rem; font-family: "SFMono-Regular", Consolas, monospace; color: #2a9d8f; }
+    strong { color: #e2e8f0; }
+    .section-group-label { font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #4a7a8a; margin: 28px 0 10px; }
+    .section-group-label:first-child { margin-top: 0; }
+    .errors-table-wrap { background: #1d3540; border-radius: 12px; overflow: hidden; border: 1px solid #2e4a5a; }
+    .errors-table { width: 100%; border-collapse: collapse; font-size: .87rem; }
+    .errors-table thead tr { background: #264653; }
+    .errors-table thead th { padding: 13px 16px; text-align: left; font-weight: 600; font-size: .82rem; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; color: #e2e8f0; }
+    .errors-table tbody tr:nth-child(even) { background: #162330; }
+    .errors-table tbody tr:nth-child(odd) { background: #1d3540; }
+    .errors-table tbody tr:hover { background: rgba(42,157,143,.07); }
+    .errors-table td { padding: 12px 16px; vertical-align: top; border-bottom: 1px solid #2e4a5a; line-height: 1.55; color: #94a3b8; }
+    .errors-table tbody tr:last-child td { border-bottom: none; }
+    .errors-table td:first-child { font-weight: 600; color: #e2e8f0; width: 30%; }
+    .errors-table td:nth-child(2) { color: #64748b; width: 28%; font-size: .83rem; }
+    .errors-table td:nth-child(3) { width: 42%; }
+    .errors-table code { background: #0f1923; border: 1px solid #2e4a5a; border-radius: 4px; padding: 1px 6px; font-size: .81rem; font-family: monospace; color: #2a9d8f; }
+    .errors-table a { color: #2a9d8f; text-decoration: none; }
+    .errors-table a:hover { text-decoration: underline; }
+    .note-box { background: rgba(245,158,11,.08); border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 12px 16px; font-size: .86rem; color: #d4a21a; margin-bottom: 18px; line-height: 1.55; }
+  </style>
+</head>
+<body>
+
+{% if not embed %}{% include 'partials/_nav.html' %}{% endif %}
+
+<div class="page-wrap">
+
+{% if not embed %}
+  <div class="page-title">Help &amp; Reference</div>
+  <div class="page-subtitle">Detailed guidance for every feature of the Personal Finance Analyser. &nbsp;
+    <a href="/docs/app_wiring.html" style="color:#2a9d8f;font-size:.82rem" target="_blank">&#128279; App Wiring Diagram</a>
+    &nbsp;&middot;&nbsp;
+    <a href="/docs/help_structure.html" style="color:#2a9d8f;font-size:.82rem" target="_blank">&#128279; Help Structure Diagram</a>
+    &nbsp;&middot;&nbsp;
+    <a href="/docs/user_tests.html" style="color:#2a9d8f;font-size:.82rem" target="_blank">&#9745; User Test Plan</a>
+  </div>
+{% endif %}
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('dashboard', this)">Dashboard</button>
+    <button class="tab-btn" onclick="switchTab('reports', this)">Reports</button>
+    <button class="tab-btn" onclick="switchTab('data', this)">Data</button>
+    <button class="tab-btn" onclick="switchTab('errors', this)">Errors &amp; Actions</button>
+  </div>
+
+  <!-- DASHBOARD TAB -->
+  <div id="tab-dashboard" class="tab-panel active">
+
+    <div class="section-group-label">Toolbar Buttons</div>
+
+    <div id="sec-toolbar" class="help-section">
+      <p style="margin:0 0 14px;color:#64748b;font-size:.9rem;">These controls appear in the navigation bar at the top of every page.</p>
+      <table class="errors-table" style="width:100%">
+        <thead>
+          <tr><th>Button / Badge</th><th>When to use</th><th>What it does</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>&#8593; Upload Files</td>
+            <td>When you have new bank statement files to add</td>
+            <td>Opens a file picker (or drag-and-drop zone). After uploading, the full pipeline runs automatically in the background: files are parsed, deduplicated, auto-categorised using merchant rules, and all reports are regenerated. You can close the modal immediately &mdash; processing continues in the background.</td>
+          </tr>
+          <tr>
+            <td><span style="background:#0ea5e9;color:white;border-radius:10px;padding:2px 8px;font-size:.78rem;font-weight:700">&#8593; Update available</span></td>
+            <td>Appears at the top of the page when a new release is detected on GitHub</td>
+            <td>Only shown if <code>server.update_check_repo</code> is configured in <code>config.yaml</code> (e.g. <code>server:\n  update_check_repo: "user/repo"</code>). The check runs in a background thread on server startup. Click &times; to dismiss — dismissal is stored in browser <code>localStorage</code> and persists until a newer version is released.</td>
+          </tr>
+          <tr>
+            <td><span style="background:#E63946;color:white;border-radius:10px;padding:2px 8px;font-size:.78rem;font-weight:700">N budget alerts</span></td>
+            <td>Visible in the nav bar whenever current-month spending breaches a budget threshold</td>
+            <td>A red badge means at least one category has exceeded its monthly budget; amber means one or more are between 80&ndash;99% of their limit. Hover the badge for a per-category breakdown. Budgets are managed in <strong>Settings &rarr; Budgets</strong>. The badge disappears once all categories are back under 80% or the month rolls over.</td>
+          </tr>
+          <tr>
+            <td><span style="background:#E63946;color:white;border-radius:10px;padding:2px 8px;font-size:.78rem;font-weight:700">N API errors</span></td>
+            <td>Visible after an import that hit categorisation or PayPal matching problems</td>
+            <td>Shows the count of Claude API batch failures and unmatched PayPal transactions from the last import run. API errors mean some transactions fell back to <em>Miscellaneous</em> &mdash; check your API key and credit balance, then upload a file to trigger a re-import. PayPal unmatched means ANZ PayPal rows have no matching PayPal CSV entry &mdash; download a PayPal activity CSV covering the same period and re-import. The badge clears on the next successful import with zero errors.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="margin:10px 0 0;font-size:.82rem;color:#64748b;">Typical workflow: <strong>Upload Files</strong> &rarr; pipeline runs automatically &rarr; review in Transactions / Review &rarr; category changes save instantly.</p>
+    </div>
+
+    <div class="section-group-label">Filters &amp; Controls</div>
+
+    <div class="help-section">
+      <h3>Period Filter</h3>
+      <p>Select the time range for all dashboard charts and figures. Options include preset periods
+      (This Month, Last Month, This Quarter, Last 3/6/12 Months) and each Australian financial year
+      present in your data. The dashboard loads with the current financial year selected by default.</p>
+      <ul>
+        <li>Select <strong>Custom Range</strong> from the dropdown, then enter from/to dates and click <strong>Apply</strong>.</li>
+        <li>All cards, tables, and charts update immediately &mdash; no page reload needed.</li>
+      </ul>
+    </div>
+
+    <div class="section-group-label">Summary</div>
+
+    <div class="help-section">
+      <h3>Summary Cards</h3>
+      <p>Six headline figures across the top of the dashboard:</p>
+      <ul>
+        <li><strong>Total Income</strong> &mdash; all income for the selected period, with a per-month average.</li>
+        <li><strong>Total Expenses</strong> &mdash; all non-transfer spending, with a per-month average.</li>
+        <li><strong>Net Cashflow</strong> &mdash; income minus expenses; green when positive, red when negative.</li>
+        <li><strong>Savings Rate</strong> &mdash; (income &minus; expenses) &divide; income as a percentage. Includes a 12-bar sparkline showing the savings rate for each of the last 12 calendar months (teal &ge;20%, amber 0&ndash;19%, red negative). Always reflects trailing 12 months regardless of the active period filter.</li>
+        <li><strong>Emergency Fund</strong> &mdash; how many months of average spending your tagged savings accounts can cover. Colour-coded: teal &ge;6 months, amber 3&ndash;5 months, red &lt;3 months. The denominator is average monthly non-transfer spend over the last 3 calendar months. If no accounts are marked as savings, the card shows a link to <strong>Settings &rarr; Accounts</strong> where you can tag them.</li>
+        <li><strong>Business Expenses</strong> &mdash; total spending flagged for reimbursement in the period.</li>
+      </ul>
+    </div>
+
+    <div id="sec-health-score" class="help-section">
+      <h3>Financial Health Score</h3>
+      <p>A composite 0&ndash;100 score that synthesises five aspects of your financial health. Shown below the summary cards on the dashboard. Colour coding: teal &ge;75 (Very Good/Excellent), amber 50&ndash;74 (Fair/Good), red &lt;50 (Poor).</p>
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;margin:10px 0">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:6px 10px;color:var(--text-2)">Component</th>
+          <th style="text-align:right;padding:6px 10px;color:var(--text-2)">Weight</th>
+          <th style="text-align:left;padding:6px 10px;color:var(--text-2)">What it measures</th>
+        </tr></thead>
+        <tbody>
+          <tr><td style="padding:6px 10px">Savings Rate</td><td style="text-align:right;padding:6px 10px;color:var(--text-2)">30%</td><td style="padding:6px 10px;color:var(--text-2)">(income &minus; expenses) &divide; income. &ge;20% scores well.</td></tr>
+          <tr><td style="padding:6px 10px">Emergency Fund</td><td style="text-align:right;padding:6px 10px;color:var(--text-2)">25%</td><td style="padding:6px 10px;color:var(--text-2)">Months of spending covered by savings accounts. &ge;6 months scores 100.</td></tr>
+          <tr><td style="padding:6px 10px">Budget Adherence</td><td style="text-align:right;padding:6px 10px;color:var(--text-2)">20%</td><td style="padding:6px 10px;color:var(--text-2)">% of budget categories on track in the current calendar month.</td></tr>
+          <tr><td style="padding:6px 10px">Debt-to-Income</td><td style="text-align:right;padding:6px 10px;color:var(--text-2)">15%</td><td style="padding:6px 10px;color:var(--text-2)">Outstanding loan balances &divide; annualised income. Lower is better.</td></tr>
+          <tr><td style="padding:6px 10px">Net Worth Trend</td><td style="text-align:right;padding:6px 10px;color:var(--text-2)">10%</td><td style="padding:6px 10px;color:var(--text-2)">Whether balance snapshots show net worth rising, flat, or falling month-on-month.</td></tr>
+        </tbody>
+      </table>
+      <ul>
+        <li>Click <strong>Show breakdown</strong> to see each component's score and contribution, plus personalised improvement tips for any component scoring below 60.</li>
+        <li>The 12-month sparkline shows score history. Emergency fund and debt-to-income use current values for historical months; savings rate and budget adherence are computed per-month from transaction data.</li>
+        <li>If no savings accounts are tagged, the Emergency Fund component defaults to a neutral 50. Tag accounts in <strong>Settings &rarr; Accounts</strong> for an accurate score.</li>
+      </ul>
+    </div>
+
+    <div class="help-section">
+      <h3>Budget Status</h3>
+      <p>Colour-coded chips showing current-month actual spend vs your configured budget for each
+      category. Updates automatically when the dashboard loads.</p>
+      <ul>
+        <li><span style="background:#14532d;color:#86efac;border-radius:4px;padding:1px 7px;font-size:.78rem;font-weight:600">&#10003; Green</span> &mdash; under budget.</li>
+        <li><span style="background:#451a03;color:#fcd34d;border-radius:4px;padding:1px 7px;font-size:.78rem;font-weight:600">&#9679; Amber</span> &mdash; over 80% of budget for the month.</li>
+        <li><span style="background:#7f1d1d;color:#fca5a5;border-radius:4px;padding:1px 7px;font-size:.78rem;font-weight:600">&#9888; Red</span> &mdash; over budget.</li>
+        <li>Budgets are managed in <strong>Settings &rarr; Budgets</strong>. If no budgets are configured, this panel is hidden.</li>
+        <li>Categories with <strong>Rollover</strong> enabled carry any unspent balance forward into the next month (capped at the base budget amount). The effective budget shown in the badge already includes the rolled-over amount.</li>
+      </ul>
+    </div>
+
+    <div class="section-group-label">Charts</div>
+
+    <div class="help-section">
+      <h3>Monthly Income vs Expenses</h3>
+      <p>Bar chart showing income (green) and expenses (red) grouped by month. Toggle the view
+      between <strong>Income &amp; Expenses</strong>, <strong>Expenses Only</strong>, and
+      <strong>Income Only</strong> using the buttons in the controls bar.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Spend by Category / Income by Source</h3>
+      <p>Horizontal bar chart showing totals per category, sorted largest first. Switches between
+      spend view and income view when you toggle the Income Only button.</p>
+    </div>
+
+    <div class="section-group-label">Tables</div>
+
+    <div class="help-section">
+      <h3>Category Breakdown &amp; Top 10 Merchants</h3>
+      <p>Summary tables below the charts showing category totals (with % of total spend and average
+      per month) and the top 10 merchants by spend for the period.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Largest Transactions</h3>
+      <p>The 20 largest individual transactions by absolute value for the selected period.</p>
+    </div>
+
+    <div class="section-group-label">AI</div>
+
+    <div class="help-section">
+      <h3>AI Recommendations — Quick Wins</h3>
+      <p>The dashboard shows the five most actionable recommendations from the latest AI analysis.
+      Click <strong>View Full Report →</strong> to open the dedicated Recommendations page where you
+      can read the full analysis and regenerate it for a specific period.</p>
+      <p>The card updates automatically each time a full import runs. To regenerate without importing,
+      use the <strong>↻ Refresh</strong> button on the Recommendations page.</p>
+    </div>
+
+  </div>
+
+  <!-- REPORTS TAB -->
+  <div id="tab-reports" class="tab-panel">
+
+    <div class="section-group-label">Filters</div>
+
+    <div class="help-section">
+      <h3>Filter Period</h3>
+      <p>Select a date range &mdash; all eight chart tabs update instantly using the embedded transaction
+      data. No server call is made; filtering is client-side and immediate.</p>
+      <ul>
+        <li>Use the same preset options as the dashboard, or select <strong>Custom Range</strong> for specific dates.</li>
+        <li>Charts resize automatically when you switch tabs.</li>
+      </ul>
+    </div>
+
+    <div class="section-group-label">Charts</div>
+
+    <div class="help-section">
+      <h3>Income vs Expenditure</h3>
+      <p>Monthly grouped bar chart. Income includes all Income, Board & Lodging, Business Reimbursement,
+      and Interest Income categories. Expenditure covers all spending categories excluding Transfers and Investments.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Spend by Category</h3>
+      <p>Total spend per category for the period, sorted largest first. <strong>Click any bar</strong>
+      to jump to the Transactions page pre-filtered by that category and the current date range,
+      where you can review and edit individual transactions.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Budget vs Actual</h3>
+      <p>Compares your configured monthly budget targets against actual average monthly spend for
+      the period. Green bars are under budget; red bars exceed it. The number of months in the
+      selected period is used to calculate the average.</p>
+      <ul>
+        <li>Budgets are managed in <strong>Settings &rarr; Budgets</strong> &mdash; set monthly limits per category and optionally enable rollover to carry unspent amounts forward.</li>
+      </ul>
+    </div>
+
+    <div class="help-section">
+      <h3>Spend Trends</h3>
+      <p>Monthly line chart tracking the top 8 spending categories over time. Useful for spotting
+      seasonal patterns or gradual increases.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Recurring Transactions</h3>
+      <p>Merchants that appear across 2 or more distinct months, sorted by total spend. Use this to
+      audit subscriptions and regular bills &mdash; check for duplicates or services you no longer use.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Top Merchants</h3>
+      <p>The top 20 individual merchants by total spend for the period. <strong>Click any bar</strong>
+      to jump to the Transactions page pre-filtered to that merchant, where you can review and
+      re-categorise transactions.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Day of Week</h3>
+      <p>Heatmap showing total spend by day of week across each month. Darker cells indicate higher
+      spend. Useful for spotting patterns (e.g. weekend dining, weekday fuel).</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Business Expenses</h3>
+      <p>All transactions flagged as business expenses for the period, showing date, description,
+      amount, category, and account. Use this as the basis for reimbursement claims.</p>
+    </div>
+
+  </div>
+
+  <!-- DATA TAB -->
+  <div id="tab-data" class="tab-panel">
+
+    <div class="section-group-label">Transaction History</div>
+
+    <div id="sec-transactions" class="help-section">
+      <h3>All Transactions <span class="badge">transactions.html</span></h3>
+      <p>Complete transaction history across all accounts. Use the search box to filter by
+      description, payee, or note. Use the period, category, account, and business-flag dropdowns
+      to narrow results.</p>
+      <ul>
+        <li>Click <strong>Change</strong> on any row to update its category and sub-category. The sub-category dropdown populates automatically based on the chosen category. Select <strong>+ Add new sub-category&hellip;</strong> to add a custom value &mdash; it is saved permanently and becomes available across all pages.</li>
+        <li>Click <strong>Flags</strong> on any row to toggle the <span style="background:#FB5607;color:white;border-radius:3px;padding:1px 5px;font-size:.8em">BIZ</span> (Business Expense &mdash; reimbursable by Bedlin), <span style="background:#7C3AED;color:white;border-radius:3px;padding:1px 5px;font-size:.8em">TAX</span> (Tax Deductible &mdash; personal deduction), and <span style="background:#059669;color:white;border-radius:3px;padding:1px 5px;font-size:.8em">GST</span> (GST Claimable &mdash; ATO 1/11th rule applies) flags. Flagged badges appear on the transaction row.</li>
+        <li>All edits save automatically &mdash; there is no Save button.</li>
+        <li>Click column headers to sort. Results are paginated (100 rows per page) &mdash; use the page controls below the table to navigate. Filters apply across all pages.</li>
+        <li>Merchant rules are applied automatically on the next import.</li>
+        <li><strong>Multi-currency:</strong> All amounts are stored in AUD. Wise converts at source; Revolut foreign-currency transactions use the AUD balance delta, with the original currency and amount recorded in the Notes column.</li>
+        <li><strong>Transaction splitting:</strong> A transaction can be split into multiple child rows (each with its own description, amount, and category). The parent row shows a green <span style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;border-radius:4px;padding:1px 5px;font-size:.78rem;font-weight:700">SPLIT</span> badge — click the &#8942; button to expand and view the children. Splitting is currently initiated via the API (<code>POST /api/txn/&lt;id&gt;/split</code>); to remove a split, click <strong>&#10006; Remove split</strong> in the expanded view.</li>
+      </ul>
+    </div>
+
+    <div id="sec-tags" class="help-section">
+      <h3>Tags <span class="badge">/tags</span></h3>
+      <p>Assign free-form tags to individual transactions for custom grouping (e.g. <code>holiday</code>, <code>tax2025</code>, <code>shared</code>). Tags are separate from categories and can span multiple categories.</p>
+      <ul>
+        <li>Click the <strong>&#x1F3F7;</strong> button on any transaction row to open the tag modal &mdash; type a tag name and press Enter (or click +) to add it. Click an existing tag chip to remove it.</li>
+        <li>Use the <strong>Tag</strong> dropdown filter in the transactions page to show only transactions with a specific tag.</li>
+        <li>Open <strong>Data &rarr; Tags</strong> to see a summary page listing all tags with per-tag spend totals and transaction counts.</li>
+        <li>Tags are stored as a comma-separated list in the database; each transaction can have multiple tags.</li>
+      </ul>
+    </div>
+
+    <div id="sec-review" class="help-section">
+      <h3>Review <span class="badge">review.html</span></h3>
+      <p>Transactions auto-categorised as <em>Miscellaneous</em>, grouped by merchant name.
+      Resolving a merchant here updates ALL transactions from that merchant at once.</p>
+      <ul>
+        <li>Select a category and optional sub-category from the inline dropdowns on each merchant row &mdash; both save instantly. The sub-category dropdown populates based on the selected category.</li>
+        <li>Click the expand arrow (&#9654;) to see individual transactions, add per-transaction notes, or check PayPal match hints.</li>
+        <li>Click <strong>Seed Rules from History</strong> to scan previously categorised transactions and auto-create merchant rules, so future imports categorise them automatically.</li>
+        <li>Results are paginated (50 groups per page). Filters apply across all pages.</li>
+        <li>Changes are saved instantly. Reports update automatically the next time a file is uploaded.</li>
+      </ul>
+    </div>
+
+    <div class="section-group-label">Transfers &amp; Internal Flows</div>
+
+    <div id="sec-transfers" class="help-section">
+      <h3>Transfers <span class="badge">transfers.html</span></h3>
+      <p>Suggested pairs of transactions with equal and opposite amounts within 60 days &mdash; likely
+      money moving between your own accounts, loan repayments, or reimbursements.</p>
+      <ul>
+        <li><strong>Confirm</strong> pairs that are genuine internal transfers to exclude them from spend analysis.</li>
+        <li><strong>Dismiss</strong> pairs that are coincidental (two unrelated transactions of the same value).</li>
+      </ul>
+    </div>
+
+    <div class="section-group-label">Reporting</div>
+
+    <div id="sec-fy-summary" class="help-section">
+      <h3>FY Summary <span class="badge">fy_summary.html</span></h3>
+      <p>Income, expenditure, tax estimates, and export options broken down by Australian financial year
+      (1 July &ndash; 30 June). Each FY card contains spending tables, tax sections, and download buttons.</p>
+      <ul>
+        <li>Each tab covers one financial year &mdash; click to switch between years.</li>
+        <li>A <strong>KPI banner</strong> at the top shows Taxable Income, Total Expenditure, Net Savings, and Savings Rate.</li>
+        <li><strong>Taxable Income</strong> = Income + Interest Income only. Board &amp; Lodging (ATO exempt) and Business Reimbursements are excluded and labelled with a badge.</li>
+        <li>An <strong>Expenditure by Category</strong> table lists all spending categories sorted largest first.</li>
+        <li>The <strong>Business Expenses</strong> table lists transactions flagged <span style="background:#FB5607;color:white;border-radius:3px;padding:1px 5px;font-size:.8em">BIZ</span> for employer reimbursement.</li>
+        <li>The <strong>Tax-Deductible Expenses</strong> table lists transactions flagged <span style="background:#7C3AED;color:white;border-radius:3px;padding:1px 5px;font-size:.8em">TAX</span> &mdash; home office, professional memberships, tools.</li>
+        <li>The <strong>GST Claimable</strong> section lists <span style="background:#059669;color:white;border-radius:3px;padding:1px 5px;font-size:.8em">GST</span> transactions. Claimable GST = 1/11th of total, per ATO standard method.</li>
+        <li>The <strong>Dividends &amp; Franking Credits</strong> section shows cash dividends, imputation credits, and grossed-up total from the <a href="/franking-credits">Franking Credits</a> page.</li>
+        <li>The <strong>Estimated Income Tax</strong> section shows gross tax, LITO offset, Medicare levy, and total payable using ATO brackets for the FY (Stage 3 cuts applied from FY2025). A secondary row shows the adjusted estimate after applying tax-deductible expenses.</li>
+        <li>A <strong>HECS/HELP alert</strong> appears in amber if your taxable income exceeds the ATO repayment threshold for the year, showing the applicable rate and estimated repayment amount.</li>
+        <li><strong>Download Tax Package</strong> — ZIP file containing CSV summaries of GST-claimable, business expenses, tax deductions, capital gains, and franking credits for the year.</li>
+        <li><strong>Xero (OFX)</strong> — exports business-flagged and GST-claimable transactions in OFX 1.02 format for direct import into Xero.</li>
+        <li><strong>MYOB (QIF)</strong> — exports the same transactions in QIF format for MYOB or Quicken. Category → account code mapping is configurable via <code>business_export.account_codes</code> in <code>config.yaml</code>.</li>
+      </ul>
+    </div>
+
+    <div id="sec-net-worth" class="help-section">
+      <h3>Net Worth <span class="badge">/net-worth</span></h3>
+      <p>Complete balance sheet — bank account balances, manual assets (property, super, vehicles, investments), and liabilities (mortgage, HECS, car finance). The four summary cards show Bank Accounts, Manual Assets, Liabilities, and total Net Worth.</p>
+      <ul>
+        <li><strong>Bank Accounts</strong> — balance snapshots extracted automatically from ANZ Plus PDFs and Revolut CSVs during each import. The table shows the latest snapshot per account.</li>
+        <li><strong>Net Worth Over Time</strong> — stacked area chart combining bank account history with manual asset snapshots and liabilities. Requires at least one data point to render.</li>
+        <li><strong>Manual Assets</strong> — click <strong>+ Add Asset</strong> to record property, superannuation, vehicles, or other investments. Enter a current value when adding; use <strong>+ Snapshot</strong> on any asset row to record a new valuation date.</li>
+        <li><strong>Superannuation</strong> — assets of type <em>Superannuation</em> accept additional fields: birth year, retirement age, expected annual return (%), and annual contribution. The <em>Projected</em> value at retirement is computed using compound interest (current balance + future contributions).</li>
+        <li><strong>Property equity</strong> — link a mortgage liability to a property asset (using <em>Linked Asset</em> on the liability). The property row then shows <em>Equity = value − mortgage</em> and LVR %; teal &lt;80%, amber 80–90%, red &gt;90%.</li>
+        <li><strong>Liabilities</strong> — click <strong>+ Add Liability</strong> to record a mortgage, HECS/HELP, car finance, credit card, or other debt. Use <strong>+ Snapshot</strong> to update the balance as you pay it down.</li>
+        <li>All manual asset and liability data is stored in <code>Data/manual_assets.json</code>.</li>
+      </ul>
+    </div>
+
+    <div id="sec-portfolio" class="help-section">
+      <h3>Investment Portfolio <span class="badge">/portfolio</span></h3>
+      <p>Track share holdings by purchase lot — cost basis, unrealised P&amp;L, and optional live market prices from Yahoo Finance.</p>
+      <ul>
+        <li>Click <strong>+ Add Lot</strong> to record a purchase: ticker symbol (e.g. <code>VAS.AX</code> for ASX, <code>AAPL</code> for NASDAQ), date, units, and cost per unit in AUD.</li>
+        <li>Holdings are aggregated by ticker — multiple lots of the same stock are summed to show total units, average cost, and total cost basis.</li>
+        <li>Click <strong>↻ Refresh Prices</strong> to fetch the latest market price from Yahoo Finance (no API key required, internet access needed). Prices update the <em>Market Value</em>, <em>Unrealised P&amp;L</em>, and <em>Return %</em> columns.</li>
+        <li>Portfolio data is stored in <code>Data/portfolio.json</code>. The <strong>Purchase Lots</strong> table at the bottom lists every lot individually.</li>
+        <li>For CGT calculations on disposals, see the <a href="/capital-gains">Capital Gains</a> page.</li>
+      </ul>
+    </div>
+
+    <div class="section-group-label">Configuration</div>
+
+    <div id="sec-commitments" class="help-section">
+      <h3>Commitments <span class="badge">/commitments</span></h3>
+      <p>Track regular committed expenses such as rent, mortgage repayments, and annual
+      subscriptions. Set the merchant name, amount, frequency, and due date. The app highlights
+      upcoming commitments and flags them against imported transactions.</p>
+    </div>
+
+    <div id="sec-bills-alerts" class="help-section">
+      <h3>Bill Due Date Alerts <span class="badge">Nav badge</span></h3>
+      <p>An orange badge in the top navigation bar appears automatically whenever a commitment is due within the next <strong>5 days</strong>. It shows the count of upcoming bills (e.g. <em>⏱ 2 bills due soon</em>).</p>
+      <ul>
+        <li>The badge is populated by <code>GET /api/run-metrics</code> on every page load — no separate action is required.</li>
+        <li>Click the badge or visit the <a href="/commitments">Commitments</a> page to see which specific bills are coming up, along with their due dates and amounts.</li>
+        <li>The alert uses the <strong>next_due</strong> date you have set on each commitment. Keep due dates current for accurate alerts.</li>
+        <li>Payments with a frequency of <em>one-off</em> are included if they fall within the 5-day window.</li>
+      </ul>
+    </div>
+
+    <div id="sec-subscriptions" class="help-section">
+      <h3>Subscriptions <span class="badge">/subscriptions</span></h3>
+      <p>A cost-focused view of your recurring commitments, sorted by monthly cost. Useful for auditing subscriptions and deciding what to cancel.</p>
+      <ul>
+        <li>The summary grid at the top shows total <strong>Monthly Cost</strong>, <strong>Annual Cost</strong>, and counts of active vs cancelled items.</li>
+        <li>The active table shows each commitment with its monthly equivalent cost, annual equivalent, last charged date, and next due date.</li>
+        <li>Click <strong>Cancel</strong> to mark a commitment as cancelled — it moves to the Cancelled section at the bottom and is excluded from cost totals.</li>
+        <li>Click <strong>Restore</strong> to re-activate a cancelled commitment.</li>
+        <li>Changes sync with <code>Data/commitments.json</code> immediately &mdash; the Commitments page reflects the same data.</li>
+      </ul>
+    </div>
+
+    <div id="sec-budget" class="help-section">
+      <h3>Budget Management <span class="badge">Settings → Budgets</span></h3>
+      <p>Set monthly spending limits per category. Budgets are stored in <code>Data/budgets.json</code> (not <code>config.yaml</code>) and managed entirely from this page.</p>
+      <ul>
+        <li>Enter a monthly AUD limit for each category you want to track. Leave blank to exclude a category.</li>
+        <li>Click <strong>Load suggestions</strong> to auto-populate suggested limits based on your average monthly spend over the last 3 months, rounded up to the nearest $25.</li>
+        <li>Click <strong>Use</strong> on any row to copy the suggestion into the budget field. Click <strong>Use all</strong> to fill all rows at once.</li>
+        <li>Enable <strong>Rollover</strong> (checkbox column) for a category to carry any unspent balance forward into the next month. The rollover amount is capped at the base budget — you can never accumulate more than 2&times; the monthly limit. If you overspent last month, rollover adds nothing.</li>
+        <li>Click <strong>Save Budgets</strong> to persist all changes. The dashboard badge and budget status chips update immediately on the next page load.</li>
+      </ul>
+    </div>
+
+    <div id="sec-merchant-rules" class="help-section">
+      <h3>Merchant Rules <span class="badge">/settings/merchant-rules</span></h3>
+      <p>Pattern-based rules that automatically assign a category to transactions matching a
+      merchant name. Rules are applied on every import.</p>
+      <ul>
+        <li>Add a rule by entering a merchant pattern (case-insensitive substring match) and selecting a category.</li>
+        <li>Delete a rule by clicking the &times; next to it.</li>
+        <li>Rules created here are saved to <code>data/merchant_rules.json</code>.</li>
+      </ul>
+    </div>
+
+    <div id="sec-accounts" class="help-section">
+      <h3>Accounts <span class="badge">/settings/accounts</span></h3>
+      <p>Manage display names and identifiers for each account. The system account name (as it appears
+      in imported files) cannot be changed, but you can set a friendly name, institution, BSB, account
+      number, or other identifier (card number, email, etc.) for each account.</p>
+      <ul>
+        <li>Click <strong>Edit</strong> on any row to update an account&rsquo;s details.</li>
+        <li>Click <strong>+ Add Account</strong> to create a new account record manually before importing files for it.</li>
+        <li>Account records are seeded automatically the first time a file is imported for that account &mdash; you can then fill in the details here.</li>
+      </ul>
+    </div>
+
+    <div id="sec-reimbursements" class="help-section">
+      <h3>Reimbursements <span class="badge">/reimbursements</span></h3>
+      <p>Track business expenses submitted to your employer for reimbursement. Group unsubmitted
+      expenses into a named batch, then link it to the reimbursement payment once received.</p>
+      <ul>
+        <li>Select unsubmitted business expenses from the list and click <strong>Create Batch</strong> to group them into a claim.</li>
+        <li>Once payment is received, link the incoming transaction to the batch to mark it as settled.</li>
+        <li>Use <strong>Suggest Historical Matches</strong> to automatically pair past reimbursement payments with their expense groups.</li>
+        <li>Transactions must be flagged as <em>Business Expense</em> in the Transactions page before they appear here.</li>
+      </ul>
+    </div>
+
+    <div id="sec-superseded" class="help-section">
+      <h3>Superseded <span class="badge">/superseded-pairs</span></h3>
+      <p>Record confirmed provider switches so the AI recommendations engine never flags sequential
+      replacements as duplicate spending. For example, if you switched health funds from HCF to
+      Australian Unity, adding that pair here prevents the AI treating them as concurrent duplicate
+      policies.</p>
+      <ul>
+        <li>Enter the old provider name (as it appears in transaction descriptions) and the new provider that replaced it.</li>
+        <li>Optionally add a category and a short note for your own reference.</li>
+        <li>The AI also uses <code>first_seen</code> and <code>last_seen</code> dates from transaction history to detect sequential providers automatically &mdash; this page is for edge cases where the dates overlap during a transition period.</li>
+        <li>Changes take effect on the next import.</li>
+      </ul>
+    </div>
+
+    <div id="sec-coverage" class="help-section">
+      <h3>Coverage <span class="badge">/coverage</span></h3>
+      <p>Shows how many transactions were imported for each account in each calendar month, as a
+      matrix. Gaps &mdash; months within an account&rsquo;s active date range that have no transactions &mdash; are
+      highlighted in red.</p>
+      <ul>
+        <li>A red <strong>!</strong> cell means no transactions were found for that account in that month. Check whether a statement file is missing for that period.</li>
+        <li>Dark cells indicate the month is outside the account&rsquo;s active date range (before first transaction or after last transaction) &mdash; these are not gaps.</li>
+        <li>The amber alert at the top counts total gaps across all accounts; green means full coverage.</li>
+      </ul>
+    </div>
+
+    <div id="sec-capital-gains" class="help-section">
+      <h3>Capital Gains <span class="badge">/capital-gains</span></h3>
+      <p>Manual entry of investment sale summaries for each financial year. PFA does not
+      auto-calculate cost base &mdash; use your broker or Sharesight annual statement and enter the
+      summary figures here.</p>
+      <ul>
+        <li>One card per financial year detected in your transaction history.</li>
+        <li><strong>Short-Term Gains</strong> &mdash; proceeds from assets held less than 12 months. Fully taxable at your marginal rate.</li>
+        <li><strong>Long-Term Gains</strong> &mdash; proceeds from assets held 12 months or more. Eligible for the 50% CGT discount (individuals and trusts).</li>
+        <li>The <strong>50% Discount</strong> and <strong>Gains After Discount</strong> are calculated automatically: discount = long-term gains &divide; 2; after-discount = short-term + discounted long-term.</li>
+        <li><strong>Capital Losses Applied</strong> &mdash; current-year or carried-forward losses offset against gains after discount.</li>
+        <li><strong>Net Taxable Capital Gains</strong> is calculated automatically.</li>
+        <li><strong>Carried Forward Losses</strong> &mdash; remaining losses to carry into the next FY.</li>
+        <li>Click <strong>Save</strong>. Saved data flows through to the FY Summary and the Tax Package export.</li>
+      </ul>
+    </div>
+
+    <div id="sec-franking-credits" class="help-section">
+      <h3>Franking Credits <span class="badge">/franking-credits</span></h3>
+      <p>Track dividend imputation credits received from Australian companies each financial year.
+      Franking credits represent corporate tax already paid on your behalf and can reduce your personal
+      income tax liability.</p>
+      <ul>
+        <li>One card per financial year. Enter <strong>Cash Dividends Received</strong> and the
+        <strong>Franking Credits</strong> associated with those dividends (both shown on your dividend statements).</li>
+        <li>The <strong>Grossed-Up Total</strong> (cash dividend + franking credit) is calculated automatically
+        and represents your assessable income from dividends.</li>
+        <li>The optional <strong>Notes</strong> field accepts free text &mdash; useful for recording the source
+        (e.g. "VAS ETF dividend").</li>
+        <li>Saved data appears on the <strong>FY Summary</strong> page in the Dividends &amp; Franking Credits section
+        and is included in the <strong>Tax Package</strong> ZIP export.</li>
+        <li>PFA uses the standard 30% company tax rate for imputation calculations. Partially-franked
+        dividends: enter only the franking credit amount stated on your dividend statement
+        (not the full imputed amount).</li>
+      </ul>
+    </div>
+
+    <div class="section-group-label">Planning</div>
+
+    <div id="sec-cash-flow" class="help-section">
+      <h3>Cash Flow <span class="badge">/cash-flow</span></h3>
+      <p>Forward-looking projection of expected outflows over the next 30, 60, 90 days, or 12 months, with scenario modelling and one-off planned expenses.</p>
+      <ul>
+        <li>Use the <strong>30 / 60 / 90 days / 12 months</strong> toggle to switch the projection horizon. All cards and the chart update instantly.</li>
+        <li>Use the <strong>Optimistic / Baseline / Pessimistic</strong> scenario toggle to model variable spend at the 25th, 50th, or 75th percentile of your monthly history (computed from the last 12 months). Committed outflows are the same in all three scenarios.</li>
+        <li><strong>Committed Outflows</strong> are sourced from your Commitments list &mdash; recurring items like rent, insurance, and subscriptions projected forward by their frequency and next due date.</li>
+        <li><strong>Estimated Variable Spend</strong> is derived from your monthly non-committed spending history. The daily rate for the selected scenario is multiplied by the horizon days. Excludes income, transfers, investments, and amounts matching commitment merchants.</li>
+        <li>The <strong>Plotly chart</strong> shows three scenario lines (shaded region) for variable spend and a separate dashed line for manual one-off entries. The stepped red baseline is committed payments.</li>
+        <li><strong>One-off Planned Expenses</strong> — click <strong>+ Add one-off</strong> to record a known future expense (e.g. "Car service $800 in August"). These appear as a separate dashed line on the chart and are included in the Total Projected Spend card.</li>
+        <li>One-off entries are stored in <code>Data/cashflow_entries.json</code>. Click the <strong>✕</strong> button next to any entry to delete it.</li>
+        <li>Manage recurring commitments (add, edit, pause) on the <a href="/commitments">Commitments</a> page.</li>
+      </ul>
+    </div>
+
+    <div id="sec-goals" class="help-section">
+      <h3>Financial Goals <span class="badge">/financial-goals</span></h3>
+      <p>Track progress towards financial milestones &mdash; emergency fund, holiday savings, debt repayment, investments, and more. Each goal has a target amount, current amount, regular contribution, and optional target date.</p>
+      <ul>
+        <li>Click <strong>+ Add Goal</strong> to create a new goal. Fill in the name, category, target amount, current amount, contribution amount and frequency, and an optional target date and linked account.</li>
+        <li>Progress bars show how close each goal is to its target. The <strong>estimated completion date</strong> is calculated automatically from your current amount and contribution frequency.</li>
+        <li>The <strong>Monthly Commitment</strong> summary card shows the total monthly equivalent of all active goal contributions, so you can see their impact alongside your committed outflows.</li>
+        <li>Click <strong>Edit</strong> on a goal to update the current amount as your balance grows &mdash; regular re-entry of the current balance is the primary way to track progress.</li>
+        <li>Click <strong>Delete</strong> to remove a goal permanently.</li>
+        <li>The search box filters goals by name or category. The goal list is sorted by nearest target date first.</li>
+      </ul>
+    </div>
+
+    <div id="sec-loans" class="help-section">
+      <h3>Loans <span class="badge">/financial-goals</span></h3>
+      <p>Track money borrowed from or lent to others. Each loan record stores the direction, the other party, category filters that link it to the relevant transactions, and an optional note.</p>
+      <ul>
+        <li>Click <strong>+ Add Loan</strong> to create a record. Set <strong>Direction</strong> to <em>I owe this</em> (money you borrowed) or <em>Owed to me</em> (money you lent).</li>
+        <li><strong>Repayment keyword</strong> &mdash; a word or phrase from the description of repayment transactions (e.g. <code>mum</code>). Transactions in the loan repayment categories matching this keyword are automatically linked to this loan.</li>
+        <li><strong>Receipt keyword</strong> &mdash; a word or phrase from the description of the original receipt/disbursement transaction (e.g. <code>lesley</code>). Covers the other side of the loan automatically without manual action.</li>
+        <li>Once both keywords are configured, all related transactions on both sides are linked &mdash; no manual linking is needed.</li>
+        <li>The <strong>Loan Position</strong> card shows total received vs total repaid for each loan, calculated live from the database.</li>
+        <li>Click <strong>View Statement</strong> on any loan to see a full transaction-by-transaction ledger at <code>/loans/&lt;id&gt;/statement</code>.</li>
+        <li>The <strong>Unlinked Loan Transactions</strong> panel lists loan-category transactions not yet covered by any keyword &mdash; use it to spot transactions that need a keyword added.</li>
+      </ul>
+    </div>
+
+    <div class="section-group-label">AI</div>
+
+    <div id="sec-insights" class="help-section">
+      <h3>Proactive Insights <span class="badge">Bell icon (nav)</span></h3>
+      <p>A rule-based insight engine scans your recent transactions on every page load and surfaces up to 10 notable patterns via the <strong>&#x1F514; bell button</strong> in the top navigation bar. A red count badge appears when there are active insights.</p>
+      <ul>
+        <li>Click the bell to open the insights tray, which slides in from the right. Click anywhere outside to close it.</li>
+        <li><strong>Spend spikes</strong> &mdash; categories where this month&rsquo;s spending is more than 50% above the 3-month average.</li>
+        <li><strong>New merchants</strong> &mdash; merchants first seen in the last 14 days.</li>
+        <li><strong>Large transactions</strong> &mdash; a single transaction &ge;$100 in a non-excluded category within the last 30 days.</li>
+        <li><strong>Weekend spending pattern</strong> &mdash; flagged if weekend spending averages more than 1.5&times; weekday spending over the last 90 days.</li>
+        <li>Excluded categories (never trigger insights): Income, Board &amp; Lodging, Interest Income, Business Reimbursement, Family Loan Received, Transfers, Investment.</li>
+        <li>Insights are computed live from the database via <code>GET /api/insights</code> — no configuration required.</li>
+      </ul>
+    </div>
+
+    <div id="sec-merchants" class="help-section">
+      <h3>Merchant Analytics <span class="badge">/merchants</span></h3>
+      <p>A dedicated view of all merchants you&rsquo;ve transacted with, aggregated from your full transaction history. Quickly identify where the most money goes, how often you visit, and whether visit frequency is changing.</p>
+      <ul>
+        <li>The top three cards show the total number of unique merchants, total spend, and how many are currently visible after filtering.</li>
+        <li><strong>Sort</strong> by Total Spend, Frequency (visit count), Avg Amount, or Last Seen using the buttons in the controls row.</li>
+        <li><strong>Search</strong> by merchant name or category using the text box. The list filters live as you type.</li>
+        <li><strong>Category filter</strong> — select a category from the dropdown to show only merchants in that category.</li>
+        <li>Each row shows: merchant name, category badge, visit count, average and max transaction size, last seen date, total spend bar, and a <strong>6-month sparkline</strong> of spend over the last 6 calendar months.</li>
+        <li>Click a merchant name to jump to the Transactions page filtered to that merchant.</li>
+        <li>Transfer, investment, and income categories are excluded from the merchant list.</li>
+      </ul>
+    </div>
+
+    <div id="sec-debt-payoff" class="help-section">
+      <h3>Debt Payoff Calculator <span class="badge">/debt-payoff</span></h3>
+      <p>An interactive calculator for modelling how quickly you can eliminate active borrowed loans using either the snowball or avalanche repayment strategy.</p>
+      <ul>
+        <li><strong>Snowball</strong> &mdash; pay minimums on all loans, then throw every extra dollar at the smallest outstanding balance first. Builds psychological momentum with quick wins.</li>
+        <li><strong>Avalanche</strong> &mdash; pay minimums on all loans, then put all extra towards the highest interest rate first. Minimises total interest paid over time.</li>
+        <li>Set the <strong>Monthly Payment Budget</strong> using the number input or slider. The calculator auto-suggests a sensible starting value based on your current loan balances.</li>
+        <li>Each loan row shows its outstanding balance, monthly allocation, estimated interest cost, and projected payoff date. Dates update live as you adjust the budget or toggle the strategy.</li>
+        <li>Enter an <strong>Interest Rate %</strong> per loan and click <strong>Save</strong> to persist it to <code>Data/loans.json</code>. The rate persists across sessions. Personal loans with no interest charged should be left at 0%.</li>
+        <li>The <strong>Plotly chart</strong> shows the projected balance for each loan month by month until payoff under the selected strategy.</li>
+        <li>Only loans in the <em>I owe this</em> (borrowed) direction with an outstanding balance appear. Completed loans and lent-money records are excluded.</li>
+        <li>Loan records are managed on the <a href="/financial-goals">Goals &amp; Loans</a> page.</li>
+      </ul>
+    </div>
+
+    <div id="sec-recommendations" class="help-section">
+      <h3>Recommendations <span class="badge">/recommendations</span></h3>
+      <p>Full AI-generated spending analysis produced by Claude. Covers subscription audit,
+      categories worth shopping around, spend spike analysis, dining vs groceries ratio, business
+      expense summary, and five Quick Wins.</p>
+      <ul>
+        <li>Select a period (All Time, This FY, Last FY, Last 12 Months, or Custom) and click <strong>↻ Refresh</strong> to regenerate the analysis for that date range.</li>
+        <li>Regeneration calls the Anthropic API and typically takes 15–30 seconds.</li>
+        <li>The analysis respects your transaction categories &mdash; if a merchant is categorised as <em>Utilities</em> it will not be re-interpreted as something else based on its name.</li>
+        <li>The AI checks merchant date ranges before flagging same-category providers as duplicates &mdash; sequential provider switches are handled automatically.</li>
+        <li>Requires the <code>ANTHROPIC_API_KEY</code> Windows environment variable to be set (never stored in <code>config.yaml</code>).</li>
+      </ul>
+    </div>
+
+    <div class="section-group-label">Integrations</div>
+
+    <div id="sec-data-sources" class="help-section">
+      <h3>Data Sources <span class="badge">/data-sources</span></h3>
+      <p>Manage where your transaction data comes from. The page shows the freshness of each account and lets you connect bank feeds via the Basiq CDR (Consumer Data Right) integration.</p>
+      <ul>
+        <li><strong>Account staleness</strong> &mdash; each account card shows how many days since the last import. Green = fresh (&le;7 days), amber = stale (8&ndash;30 days), red = very stale (&gt;30 days). A badge in the top nav links here when any account is amber or red.</li>
+        <li><strong>Connect via Basiq</strong> &mdash; click <strong>Connect a bank</strong> to open the Basiq consent flow in a new tab. After authorising, return here and the connection appears in the CDR Connections panel.</li>
+        <li><strong>Sync</strong> &mdash; click <strong>Sync all</strong> to pull new transactions from all CDR connections. Transactions are deduplicated against existing imports using the same hash-based ID scheme as manual imports.</li>
+        <li><strong>Disconnect</strong> &mdash; removes the CDR connection. Existing imported transactions are kept; only future syncing is disabled.</li>
+        <li><strong>Mark as closed</strong> &mdash; use the toggle on an account card to hide a closed account from the staleness view without deleting its history.</li>
+        <li>Requires the <code>BASIQ_API_KEY</code> Windows environment variable to be set. If the key is missing, CDR features are hidden and a warning is shown. Set it with:<br><code>[Environment]::SetEnvironmentVariable("BASIQ_API_KEY", "your-key", "User")</code></li>
+        <li>Account matching uses BSB + account number (dash-normalised). If no BSB match is found, the Basiq account name is used as a fallback.</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- ERRORS & ACTIONS TAB -->
+  <div id="tab-errors" class="tab-panel">
+
+    <div class="note-box">
+      Only errors requiring human action are listed below. System errors (database failures,
+      unexpected crashes) should be reported as bugs.
+    </div>
+
+    <div class="errors-table-wrap">
+      <table class="errors-table">
+        <thead>
+          <tr>
+            <th>Error / Symptom</th>
+            <th>Where Seen</th>
+            <th>Action Required</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Anthropic account credits are exhausted</td>
+            <td>Data &rarr; Recommendations &rarr; Refresh</td>
+            <td>Top up API credits at console.anthropic.com/settings/billing. The Anthropic API key must have a positive credit balance.</td>
+          </tr>
+          <tr>
+            <td>"API error: &hellip;" in Recommendations</td>
+            <td>Data &rarr; Recommendations &rarr; Refresh</td>
+            <td>Check that <code>ANTHROPIC_API_KEY</code> is set as a Windows User environment variable (never in <code>config.yaml</code>). Verify the key is valid at console.anthropic.com.</td>
+          </tr>
+          <tr>
+            <td>"No budget configured" (Budget vs Actual shows empty)</td>
+            <td>Reports &rarr; Budget vs Actual</td>
+            <td>Open <strong>Settings &rarr; Budgets</strong> and enter monthly AUD limits for the categories you want to track. Click <strong>Load suggestions</strong> to auto-fill based on recent spend history, then click <strong>Save Budgets</strong>. No restart required.</td>
+          </tr>
+          <tr>
+            <td>"Filtering requires the local server"</td>
+            <td>Reports &rarr; Filter Period</td>
+            <td>You are opening the HTML file directly (<code>file://</code> URL). Open the dashboard through the local server at http://localhost:5100 instead.</td>
+          </tr>
+          <tr>
+            <td>Import produces 0 new transactions</td>
+            <td>After uploading a file</td>
+            <td>Verify the file format is supported: ANZ PDF, PayPal CSV, Revolut CSV, or 28 Degrees HTML. Check the file is not empty and covers a date range not already imported.</td>
+          </tr>
+          <tr>
+            <td>PayPal transactions appear unmatched or missing</td>
+            <td>Data &rarr; Transfers</td>
+            <td>Ensure the PayPal activity CSV date range overlaps with your bank statements for the same period. Download a fresh CSV from PayPal covering the relevant months.</td>
+          </tr>
+          <tr>
+            <td>"watchdog not installed &mdash; auto-import on file drop disabled"</td>
+            <td>Server startup (terminal output)</td>
+            <td>Optional feature. Run <code>pip install watchdog</code> in the project folder to enable automatic import when files are dropped into the Raw Data folder.</td>
+          </tr>
+          <tr>
+            <td>Dashboard charts still show old categories after editing</td>
+            <td>Dashboard &rarr; Summary / Charts</td>
+            <td>Category changes in Transactions or Review save instantly to the database, but the static report files only regenerate on the next import. Upload any statement file to trigger a pipeline run, which will regenerate reports with the latest data.</td>
+          </tr>
+          <tr>
+            <td>Net Worth chart shows "No data"</td>
+            <td>Data &rarr; Net Worth</td>
+            <td>No balance snapshots have been extracted yet. Upload ANZ Plus PDFs or Revolut CSVs &mdash; balances are extracted automatically during import. For 28 Degrees and PayPal, manually add rows to <code>data/account_balances.csv</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+function switchTab(tabId, btn) {
+  var panels = document.querySelectorAll('.tab-panel');
+  for (var i = 0; i < panels.length; i++) { panels[i].classList.remove('active'); }
+  var btns = document.querySelectorAll('.tab-bar .tab-btn');
+  for (var j = 0; j < btns.length; j++) { btns[j].classList.remove('active'); }
+  document.getElementById('tab-' + tabId).classList.add('active');
+  btn.classList.add('active');
+}
+
+// Auto-switch tab and scroll to anchor (used by the help drawer)
+(function() {
+  var tab    = '{{ initial_tab | default("dashboard") }}';
+  var anchor = '{{ initial_anchor | default("") }}';
+  if (tab && tab !== 'dashboard') {
+    var btn = document.querySelector('.tab-bar .tab-btn[onclick*="\'' + tab + '\'"]');
+    if (btn) btn.click();
+  }
+  if (anchor) {
+    // 300ms: outlasts the drawer's 250ms slide-in CSS transition so the iframe
+    // is fully on-screen before we scroll. window.scrollTo is more reliable
+    // than scrollIntoView() inside fixed-sidebar iframes.
+    setTimeout(function() {
+      var el = document.getElementById(anchor);
+      if (el) {
+        var top = el.getBoundingClientRect().top
+                  + (window.pageYOffset || document.documentElement.scrollTop)
+                  - 12;
+        window.scrollTo(0, top);
+        el.style.outline = '2px solid #2a9d8f';
+        setTimeout(function() { el.style.outline = ''; }, 1800);
+      }
+    }, 300);
+  }
+})();
+</script>
+
+</body>
+</html>

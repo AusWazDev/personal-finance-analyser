@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Recommendations — Personal Finance Analyser</title>
+  <style>
+    .header{margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+    .header h1{font-size:1.6rem;color:#2A9D8F;flex:1}
+    .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .controls label{font-size:.82rem;color:#94a3b8}
+    .controls select{padding:8px 12px;border-radius:8px;border:1px solid #2e4a5a;background:#1d3540;color:#e2e8f0;font-size:.85rem;cursor:pointer}
+    .controls select:focus{outline:none;border-color:#2a9d8f}
+    .btn-refresh{padding:8px 18px;background:#2a9d8f;color:white;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600}
+    .btn-refresh:hover{background:#21867a}
+    .btn-refresh:disabled{background:#555;cursor:not-allowed}
+    .card{background:#1d3540;border-radius:12px;padding:24px 28px;margin-bottom:20px}
+    .generated{font-size:.8rem;color:#64748b;margin-bottom:20px}
+    /* Recommendations content — light card inside dark page */
+    .rec-wrap{background:#fff;border-radius:10px;padding:28px 32px;color:#1a1a2e}
+    .rec-wrap h1{font-size:1.2rem;color:#1a1a2e;margin:0 0 4px}
+    .rec-wrap h2{font-size:1rem;color:#2a9d8f;border-bottom:1px solid #dde;padding-bottom:6px;margin:24px 0 10px}
+    .rec-wrap h3{font-size:.9rem;color:#64748b;margin:14px 0 6px}
+    .rec-wrap ul,.rec-wrap ol{padding-left:1.4em;line-height:1.8}
+    .rec-wrap li{margin-bottom:4px}
+    .rec-wrap table{border-collapse:collapse;width:100%;font-size:.82rem;margin:12px 0}
+    .rec-wrap td,.rec-wrap th{border:1px solid #dde;padding:7px 10px;text-align:left}
+    .rec-wrap thead td,.rec-wrap th{background:#264653;color:white;font-weight:600}
+    .rec-wrap tr:nth-child(even){background:#f8fafc}
+    .rec-wrap p{line-height:1.65;color:#334155;margin:6px 0}
+    .rec-wrap em{color:#64748b}
+    .rec-wrap code{background:#f1f5f9;color:#264653;padding:1px 5px;border-radius:3px;font-size:.85em}
+    .rec-wrap hr{border:none;border-top:1px solid #e2e8f0;margin:20px 0}
+    .rec-wrap strong{color:#1a1a2e}
+    .loading{color:#94a3b8;font-style:italic;padding:20px 0;text-align:center}
+    .custom-dates{display:none;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px}
+    .custom-dates.visible{display:flex}
+    .custom-dates input[type=date]{padding:7px 10px;border-radius:8px;border:1px solid #2e4a5a;background:#1d3540;color:#e2e8f0;font-size:.85rem}
+    .btn-apply{padding:7px 14px;background:#457B9D;color:white;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600}
+  </style>
+</head>
+<body>
+
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>AI Recommendations</h1>
+  <div class="controls">
+    <label>Period:</label>
+    <select id="rec-period" onchange="onPeriodChange()">
+      <option value="all" selected>All Time (default)</option>
+      <option value="this_fy">This Financial Year</option>
+      <option value="last_fy">Last Financial Year</option>
+      <option value="last_12m">Last 12 Months</option>
+      <option value="custom">Custom…</option>
+    </select>
+    <button class="btn-refresh" id="rec-refresh-btn" onclick="refreshRec()">&#8635; Refresh</button>
+  </div>
+</div>
+
+<div class="custom-dates" id="custom-dates">
+  <label style="font-size:.82rem;color:#94a3b8">From</label>
+  <input type="date" id="custom-from">
+  <label style="font-size:.82rem;color:#94a3b8">To</label>
+  <input type="date" id="custom-to">
+  <button class="btn-apply" onclick="refreshRec()">Apply</button>
+</div>
+
+<div class="rec-wrap" id="rec-content">
+  {{ content|safe }}
+</div>
+
+<script>
+const TODAY = '{{ today }}';
+
+function fyDates(offsetYears) {
+  var d = new Date(TODAY);
+  var y = d.getFullYear(), m = d.getMonth();
+  var fyEnd = m >= 6 ? y : y - 1;
+  fyEnd -= offsetYears;
+  return { from: (fyEnd - 1) + '-07-01', to: fyEnd + '-06-30' };
+}
+
+function onPeriodChange() {
+  var p = document.getElementById('rec-period').value;
+  var cd = document.getElementById('custom-dates');
+  cd.classList.toggle('visible', p === 'custom');
+}
+
+function refreshRec() {
+  var p = document.getElementById('rec-period').value;
+  var from = null, to = null, label = 'All Time';
+
+  if (p === 'this_fy') {
+    var r = fyDates(0); from = r.from; to = r.to; label = 'This Financial Year';
+  } else if (p === 'last_fy') {
+    var r2 = fyDates(1); from = r2.from; to = r2.to; label = 'Last Financial Year';
+  } else if (p === 'last_12m') {
+    var d = new Date(TODAY);
+    d.setFullYear(d.getFullYear() - 1);
+    from = d.toISOString().slice(0, 10); to = TODAY; label = 'Last 12 Months';
+  } else if (p === 'custom') {
+    from = document.getElementById('custom-from').value || null;
+    to   = document.getElementById('custom-to').value   || null;
+    label = (from || '') + (from && to ? ' to ' : '') + (to || 'All Time');
+  }
+
+  var btn = document.getElementById('rec-refresh-btn');
+  var content = document.getElementById('rec-content');
+  btn.disabled = true; btn.textContent = '...';
+  content.innerHTML = '<p class="loading">Generating recommendations — this may take 15–30 seconds…</p>';
+
+  fetch('/api/recommendations-for-period', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({from: from, to: to, label: label})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    btn.disabled = false; btn.textContent = '↻ Refresh';
+    content.innerHTML = d.ok ? d.html : '<p style="color:#E63946">Error: ' + (d.error || 'Unknown') + '</p>';
+  })
+  .catch(function(e) {
+    btn.disabled = false; btn.textContent = '↻ Refresh';
+    content.innerHTML = '<p style="color:#E63946">Network error: ' + e + '</p>';
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Subscriptions — Personal Finance Analyser</title>
+  <style>
+    .sub-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px}
+    .sub-stat{background:var(--surface-2);border-radius:10px;padding:16px 18px;text-align:center}
+    .sub-stat .val{font-size:1.6rem;font-weight:700;color:var(--text-1)}
+    .sub-stat .lbl{font-size:.78rem;color:var(--text-2);margin-top:4px}
+    .sub-table{width:100%;border-collapse:collapse;font-size:.875rem}
+    .sub-table th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--border);color:var(--text-2);font-size:.78rem;font-weight:600;white-space:nowrap}
+    .sub-table td{padding:9px 10px;border-bottom:1px solid var(--border-2);vertical-align:middle}
+    .sub-table tr:last-child td{border-bottom:none}
+    .sub-table tr:hover td{background:var(--surface-2)}
+    .freq-chip{display:inline-block;padding:2px 8px;border-radius:8px;font-size:.72rem;font-weight:600;background:var(--surface-2);color:var(--text-2);border:1px solid var(--border)}
+    .cat-chip{display:inline-block;padding:2px 8px;border-radius:8px;font-size:.72rem;font-weight:600;background:var(--accent-dim);color:var(--accent);border:1px solid rgba(42,157,143,.25)}
+    .amt{font-weight:700;color:var(--text-1)}
+    .grey{color:var(--text-2)}
+    .cancelled-toggle{cursor:pointer;color:var(--accent);font-size:.82rem;font-weight:600;border:none;background:none;padding:0;margin-bottom:10px}
+    .badge-inactive{opacity:.55}
+    @media(max-width:768px){
+      .sub-table th:nth-child(4),.sub-table td:nth-child(4),
+      .sub-table th:nth-child(5),.sub-table td:nth-child(5){display:none}
+    }
+  </style>
+</head>
+<body>
+
+{% set active_section = 'data' %}
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>Subscriptions</h1>
+  <p>Cost overview of all recurring commitments. Manage on the <a href="/commitments" style="color:var(--accent)">Commitments</a> page.</p>
+</div>
+
+<!-- Summary stats -->
+<div class="sub-grid">
+  <div class="sub-stat">
+    <div class="val">${{ "{:,.0f}".format(total_monthly) }}</div>
+    <div class="lbl">Monthly cost</div>
+  </div>
+  <div class="sub-stat">
+    <div class="val">${{ "{:,.0f}".format(total_annual) }}</div>
+    <div class="lbl">Annual cost</div>
+  </div>
+  <div class="sub-stat">
+    <div class="val">{{ active_items|length }}</div>
+    <div class="lbl">Active</div>
+  </div>
+  <div class="sub-stat">
+    <div class="val">{{ cancelled_items|length }}</div>
+    <div class="lbl">Cancelled</div>
+  </div>
+</div>
+
+<!-- Active subscriptions -->
+<div class="card">
+  <div class="card-title">Active{% if active_items %} <span class="grey" style="font-weight:400;font-size:.9rem">({{ active_items|length }})</span>{% endif %}</div>
+  {% if active_items %}
+  <div style="overflow-x:auto">
+  <table class="sub-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Category</th>
+        <th>Freq</th>
+        <th>Monthly</th>
+        <th>Annual</th>
+        <th>Last charged</th>
+        <th>Next due</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in active_items %}
+      <tr id="row-{{ item.id }}">
+        <td><strong>{{ item.name }}</strong>{% if item.notes %}<br><span class="grey" style="font-size:.75rem">{{ item.notes }}</span>{% endif %}</td>
+        <td><span class="cat-chip">{{ item.category }}</span></td>
+        <td><span class="freq-chip">{{ item.freq_label }}</span></td>
+        <td class="amt">${{ "{:,.2f}".format(item.monthly_cost) }}</td>
+        <td class="grey">${{ "{:,.0f}".format(item.annual_cost) }}</td>
+        <td class="grey">{{ item.last_seen or '—' }}</td>
+        <td class="grey">{{ item.next_due or '—' }}</td>
+        <td style="white-space:nowrap">
+          <button class="btn-sm" onclick="cancelSub('{{ item.id }}', '{{ item.name|e }}')" title="Mark as cancelled" style="background:#E63946;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.78rem">Cancel</button>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="empty">No active subscriptions detected. Visit <a href="/commitments" style="color:var(--accent)">Commitments</a> to add recurring items.</div>
+  {% endif %}
+</div>
+
+<!-- Cancelled subscriptions -->
+{% if cancelled_items %}
+<div class="card">
+  <button class="cancelled-toggle" onclick="toggleCancelled()" id="cancelled-toggle-btn">
+    &#9660; Show {{ cancelled_items|length }} cancelled
+  </button>
+  <div id="cancelled-section" style="display:none">
+  <div style="overflow-x:auto">
+  <table class="sub-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Category</th>
+        <th>Freq</th>
+        <th>Monthly</th>
+        <th>Annual</th>
+        <th>Last charged</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in cancelled_items %}
+      <tr id="row-{{ item.id }}" class="badge-inactive">
+        <td><strong>{{ item.name }}</strong></td>
+        <td><span class="cat-chip">{{ item.category }}</span></td>
+        <td><span class="freq-chip">{{ item.freq_label }}</span></td>
+        <td class="grey">${{ "{:,.2f}".format(item.monthly_cost) }}</td>
+        <td class="grey">${{ "{:,.0f}".format(item.annual_cost) }}</td>
+        <td class="grey">{{ item.last_seen or '—' }}</td>
+        <td>
+          <button class="btn-sm" onclick="restoreSub('{{ item.id }}', '{{ item.name|e }}')" style="background:#2a9d8f;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.78rem">Restore</button>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function toggleCancelled() {
+  var sec = document.getElementById('cancelled-section');
+  var btn = document.getElementById('cancelled-toggle-btn');
+  if (sec.style.display === 'none') {
+    sec.style.display = '';
+    btn.textContent = btn.textContent.replace('▼', '▲').replace('Show', 'Hide');
+  } else {
+    sec.style.display = 'none';
+    btn.textContent = btn.textContent.replace('▲', '▼').replace('Hide', 'Show');
+  }
+}
+
+function cancelSub(id, name) {
+  if (!confirm('Mark "' + name + '" as cancelled?')) return;
+  _toggleSub(id, false);
+}
+
+function restoreSub(id, name) {
+  if (!confirm('Restore "' + name + '" as active?')) return;
+  _toggleSub(id, true);
+}
+
+function _toggleSub(id, active) {
+  fetch('/api/commitments/toggle', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: id, active: active})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) {
+      window.location.reload();
+    } else {
+      alert('Error: ' + (d.error || 'unknown'));
+    }
+  }).catch(function(e) { alert('Network error: ' + e); });
+}
+</script>
+
+</body>
+</html>

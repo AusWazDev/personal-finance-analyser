@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Bank Profiles — Personal Finance Analyser</title>
+  <link rel="stylesheet" href="/static/base.css">
+  <style>
+    .page-header{margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+    .page-header h1{font-size:1.6rem;color:#2A9D8F;margin:0}
+    .page-header p{color:#94a3b8;margin-top:4px;font-size:.9rem}
+    .card{background:#1d3540;border-radius:12px;padding:24px;margin-bottom:20px}
+    .card-title{font-size:1rem;font-weight:700;color:#e2e8f0;margin:0 0 16px}
+    .btn-primary{padding:9px 22px;background:#2A9D8F;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.9rem}
+    .btn-primary:hover{background:#21867a}
+    .btn-outline{padding:8px 18px;background:transparent;color:#2A9D8F;border:1px solid #2A9D8F;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:600}
+    .btn-outline:hover{background:#2A9D8F22}
+    .btn-danger{padding:5px 12px;background:transparent;color:#E63946;border:1px solid #E63946;border-radius:6px;cursor:pointer;font-size:.8rem;font-weight:600}
+    .btn-danger:hover{background:#E6394622}
+    table{width:100%;border-collapse:collapse}
+    th{text-align:left;padding:10px 14px;color:#94a3b8;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #2e4a5a;white-space:nowrap}
+    td{padding:8px 14px;border-bottom:1px solid #1a2e3a;font-size:.87rem;vertical-align:middle}
+    tr:hover td{background:rgba(42,157,143,.04)}
+    .empty-note{color:#64748b;font-size:.88rem;padding:20px 0;text-align:center}
+    .form-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+    .form-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:180px}
+    .form-group label{font-size:.8rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+    .form-group input,.form-group select,.form-group textarea{padding:8px 10px;border-radius:6px;border:1px solid #2e4a5a;background:#0f1923;color:#e2e8f0;font-size:.9rem;width:100%;box-sizing:border-box}
+    .form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#2A9D8F}
+    .form-group textarea{min-height:90px;font-family:monospace;font-size:.8rem;resize:vertical}
+    .divider{color:#64748b;font-size:.8rem;text-align:center;margin:6px 0}
+    .or-divider{display:flex;align-items:center;gap:10px;margin:8px 0}
+    .or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:#2e4a5a}
+    .or-divider span{color:#64748b;font-size:.78rem;white-space:nowrap}
+    .toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:.9rem;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999;color:white}
+    .toast.show{opacity:1}
+    .toast.ok{background:#2A9D8F}
+    .toast.err{background:#E63946}
+    .ai-bar{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+    .ai-bar .form-group{flex:1}
+    .hint{font-size:.75rem;color:#64748b;margin-top:2px}
+  </style>
+</head>
+<body>
+
+{% include 'partials/_nav.html' %}
+
+<div class="page-header">
+  <div>
+    <h1>Bank Profiles</h1>
+    <p>Map CSV column names for banks not natively supported. Saved profiles are used automatically on import.</p>
+  </div>
+</div>
+
+<!-- Saved profiles table -->
+<div class="card">
+  <p class="card-title">Saved profiles</p>
+  {% if profiles %}
+  <table>
+    <thead>
+      <tr>
+        <th>Bank</th>
+        <th>Account</th>
+        <th>Type</th>
+        <th>Date col</th>
+        <th>Amount col(s)</th>
+        <th>Description col</th>
+        <th>Created</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in profiles %}
+      <tr>
+        <td style="color:#e2e8f0;font-weight:600">{{ p.bank_name or '—' }}</td>
+        <td>{{ p.display_name or '—' }}</td>
+        <td>{{ p.account_type or '—' }}</td>
+        <td style="font-family:monospace;font-size:.8rem">{{ p.date_col }}</td>
+        <td style="font-family:monospace;font-size:.8rem">
+          {% if p.credit_col and p.debit_col %}{{ p.credit_col }} / {{ p.debit_col }}
+          {% else %}{{ p.amount_col }}{% endif %}
+        </td>
+        <td style="font-family:monospace;font-size:.8rem">{{ p.description_col }}</td>
+        <td style="color:#64748b;font-size:.8rem">{{ p.created_at or '' }}</td>
+        <td><button class="btn-danger" onclick="deleteProfile('{{ p.key }}', this)">Delete</button></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty-note">No profiles saved yet. Add one below.</p>
+  {% endif %}
+</div>
+
+<!-- Add / edit profile form -->
+<div class="card">
+  <p class="card-title">Add profile</p>
+
+  <!-- Step 1: paste CSV -->
+  <div class="form-row">
+    <div class="form-group" style="flex:2;min-width:300px">
+      <label>Paste CSV sample (header row + 2–3 data rows)</label>
+      <textarea id="csv-paste" placeholder="Date,Amount,Description&#10;01/06/2026,-25.50,WOOLWORTHS&#10;03/06/2026,1200.00,SALARY" oninput="parsePastedCsv()"></textarea>
+      <span class="hint">Column names are read from the first row.</span>
+    </div>
+    <div style="display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:2px">
+      <button class="btn-outline" onclick="aiSuggest()" id="ai-btn">AI Suggest</button>
+    </div>
+  </div>
+
+  <!-- Step 2: mapping fields -->
+  <div class="form-row">
+    <div class="form-group">
+      <label>Bank name</label>
+      <input id="f-bank-name" type="text" placeholder="e.g. Westpac">
+    </div>
+    <div class="form-group">
+      <label>Account display name</label>
+      <input id="f-display-name" type="text" placeholder="e.g. Westpac Everyday">
+    </div>
+    <div class="form-group">
+      <label>Account type</label>
+      <select id="f-account-type">
+        <option value="transaction">Transaction</option>
+        <option value="savings">Savings</option>
+        <option value="credit_card">Credit card</option>
+        <option value="investment">Investment</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label>Date column</label>
+      <select id="f-date-col"><option value="">— select —</option></select>
+    </div>
+    <div class="form-group">
+      <label>Date format</label>
+      <input id="f-date-format" type="text" placeholder="%d/%m/%Y">
+      <span class="hint">Python strftime, e.g. %Y-%m-%d or %d/%m/%Y</span>
+    </div>
+    <div class="form-group">
+      <label>Description column</label>
+      <select id="f-desc-col"><option value="">— select —</option></select>
+    </div>
+    <div class="form-group">
+      <label>Skip header rows</label>
+      <input id="f-skip-rows" type="number" value="0" min="0" max="10">
+    </div>
+  </div>
+
+  <!-- Single amount OR credit/debit -->
+  <div class="form-row">
+    <div class="form-group">
+      <label>Amount column (signed)</label>
+      <select id="f-amount-col"><option value="">— select —</option></select>
+    </div>
+    <div style="display:flex;align-items:center;padding-top:22px">
+      <div class="or-divider" style="width:40px"><span>or</span></div>
+    </div>
+    <div class="form-group">
+      <label>Credit column</label>
+      <select id="f-credit-col"><option value="">— none —</option></select>
+    </div>
+    <div class="form-group">
+      <label>Debit column</label>
+      <select id="f-debit-col"><option value="">— none —</option></select>
+    </div>
+    <div class="form-group" style="min-width:160px">
+      <label>Negate amounts</label>
+      <label style="display:flex;align-items:center;gap:8px;padding-top:8px;font-size:.9rem;color:#e2e8f0;text-transform:none;letter-spacing:0">
+        <input type="checkbox" id="f-negate" style="width:auto">
+        Debits shown as positive
+      </label>
+    </div>
+  </div>
+
+  <div style="margin-top:8px">
+    <button class="btn-primary" onclick="saveProfile()">Save profile</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+var _columns = [];
+
+function parsePastedCsv() {
+  var text = document.getElementById('csv-paste').value;
+  var lines = text.split('\n').filter(function(l) { return l.trim(); });
+  if (!lines.length) { _columns = []; refreshSelects(); return; }
+  _columns = lines[0].split(',').map(function(c) { return c.trim(); }).filter(Boolean);
+  refreshSelects();
+}
+
+function refreshSelects() {
+  var ids = ['f-date-col','f-desc-col','f-amount-col','f-credit-col','f-debit-col'];
+  ids.forEach(function(id) {
+    var sel = document.getElementById(id);
+    var cur = sel.value;
+    var isOptional = id === 'f-amount-col' || id === 'f-credit-col' || id === 'f-debit-col';
+    sel.innerHTML = isOptional
+      ? '<option value="">— none —</option>'
+      : '<option value="">— select —</option>';
+    _columns.forEach(function(c) {
+      var opt = document.createElement('option');
+      opt.value = c; opt.textContent = c;
+      if (c === cur) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+function aiSuggest() {
+  var csv = document.getElementById('csv-paste').value.trim();
+  if (!csv) { alert('Paste at least the CSV header row first.'); return; }
+  var btn = document.getElementById('ai-btn');
+  btn.disabled = true; btn.textContent = 'Thinking…';
+  fetch('/api/detect-csv-columns', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({csv_text: csv})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    btn.disabled = false; btn.textContent = 'AI Suggest';
+    if (!d.ok) { showToast(d.error || 'AI failed', 'err'); return; }
+    var s = d.suggestion;
+    setSelect('f-date-col', s.date_col);
+    if (s.date_format) document.getElementById('f-date-format').value = s.date_format;
+    setSelect('f-desc-col', s.description_col);
+    if (s.amount_col) { setSelect('f-amount-col', s.amount_col); setSelect('f-credit-col', ''); setSelect('f-debit-col', ''); }
+    else { setSelect('f-amount-col', ''); setSelect('f-credit-col', s.credit_col || ''); setSelect('f-debit-col', s.debit_col || ''); }
+    document.getElementById('f-negate').checked = !!s.negate_amounts;
+    showToast('Columns suggested — review and save.', 'ok');
+  }).catch(function(e) {
+    btn.disabled = false; btn.textContent = 'AI Suggest';
+    showToast('Request failed: ' + e, 'err');
+  });
+}
+
+function setSelect(id, val) {
+  var sel = document.getElementById(id);
+  for (var i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value === val) { sel.selectedIndex = i; return; }
+  }
+}
+
+function saveProfile() {
+  var csv = document.getElementById('csv-paste').value;
+  var firstLine = csv.split('\n')[0] || '';
+  if (!firstLine.trim()) { alert('Paste CSV sample first so column names can be determined.'); return; }
+  var payload = {
+    headers_csv:     firstLine.trim(),
+    bank_name:       document.getElementById('f-bank-name').value.trim(),
+    display_name:    document.getElementById('f-display-name').value.trim(),
+    account_type:    document.getElementById('f-account-type').value,
+    date_col:        document.getElementById('f-date-col').value,
+    date_format:     document.getElementById('f-date-format').value.trim(),
+    amount_col:      document.getElementById('f-amount-col').value,
+    credit_col:      document.getElementById('f-credit-col').value,
+    debit_col:       document.getElementById('f-debit-col').value,
+    description_col: document.getElementById('f-desc-col').value,
+    negate_amounts:  document.getElementById('f-negate').checked,
+    skip_rows:       parseInt(document.getElementById('f-skip-rows').value, 10) || 0,
+  };
+  if (!payload.date_col) { alert('Date column is required.'); return; }
+  if (!payload.amount_col && !(payload.credit_col && payload.debit_col)) {
+    alert('Either amount column or both credit and debit columns are required.'); return;
+  }
+  if (!payload.description_col) { alert('Description column is required.'); return; }
+  fetch('/api/bank-profiles', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) { showToast('Profile saved.', 'ok'); setTimeout(function() { location.reload(); }, 800); }
+    else showToast(d.error || 'Save failed', 'err');
+  }).catch(function(e) { showToast('Request failed: ' + e, 'err'); });
+}
+
+function deleteProfile(key, btn) {
+  if (!confirm('Delete this profile?')) return;
+  btn.disabled = true;
+  fetch('/api/bank-profiles/' + encodeURIComponent(key), { method: 'DELETE' })
+    .then(function(r) { return r.json(); }).then(function(d) {
+      if (d.ok) { showToast('Deleted.', 'ok'); setTimeout(function() { location.reload(); }, 600); }
+      else { btn.disabled = false; showToast('Delete failed', 'err'); }
+    }).catch(function(e) { btn.disabled = false; showToast('Error: ' + e, 'err'); });
+}
+
+function showToast(msg, cls) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + cls + ' show';
+  setTimeout(function() { t.className = 'toast'; }, 3000);
+}
+</script>
+</body>
+</html>

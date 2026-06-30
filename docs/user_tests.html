@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Test Plan — Personal Finance Analyser</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1923; color: #e2e8f0; min-height: 100vh; padding: 28px 24px; }
+    h1 { font-size: 1.45rem; font-weight: 700; color: #2a9d8f; margin-bottom: 4px; }
+    .subtitle { font-size: .88rem; color: #64748b; margin-bottom: 24px; }
+    a { color: #2a9d8f; }
+
+    /* Summary bar */
+    .summary-bar { background: #1d3540; border-radius: 12px; padding: 16px 24px; margin-bottom: 28px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; border: 1px solid #2e4a5a; }
+    .summary-bar .label { font-size: .8rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+    .summary-stat { display: flex; align-items: center; gap: 8px; }
+    .summary-stat .num { font-size: 1.4rem; font-weight: 700; }
+    .num-pass { color: #22c55e; }
+    .num-fail { color: #ef4444; }
+    .num-skip { color: #f59e0b; }
+    .num-total { color: #94a3b8; }
+    .progress-wrap { flex: 1; min-width: 180px; }
+    .progress-bar-bg { background: #0f1923; border-radius: 6px; height: 10px; overflow: hidden; }
+    .progress-bar-fill { background: linear-gradient(90deg, #22c55e, #2a9d8f); height: 100%; border-radius: 6px; transition: width .4s ease; }
+    .btn-reset { margin-left: auto; padding: 7px 16px; background: transparent; border: 1px solid #2e4a5a; border-radius: 8px; color: #64748b; font-size: .8rem; cursor: pointer; }
+    .btn-reset:hover { border-color: #ef4444; color: #ef4444; }
+
+    /* Section */
+    .section { margin-bottom: 32px; }
+    .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .section-title { font-size: 1rem; font-weight: 700; color: #e2e8f0; }
+    .section-badge { font-size: .72rem; font-weight: 700; background: rgba(42,157,143,.12); color: #2a9d8f; padding: 2px 9px; border-radius: 4px; letter-spacing: .05em; text-transform: uppercase; }
+    .prereq { background: rgba(245,158,11,.07); border-left: 3px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 9px 14px; font-size: .82rem; color: #d4a21a; margin-bottom: 12px; line-height: 1.5; }
+
+    /* Test card */
+    .test-card { background: #1d3540; border-radius: 10px; border: 1px solid #2e4a5a; margin-bottom: 10px; overflow: hidden; transition: border-color .2s; }
+    .test-card.pass { border-color: #16a34a; }
+    .test-card.fail { border-color: #dc2626; }
+    .test-card.skip { border-color: #d97706; }
+    .test-header { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; cursor: pointer; user-select: none; }
+    .test-header:hover { background: rgba(42,157,143,.05); }
+    .test-id { font-size: .72rem; font-weight: 700; color: #2a9d8f; background: rgba(42,157,143,.1); border-radius: 4px; padding: 2px 7px; white-space: nowrap; flex-shrink: 0; margin-top: 1px; }
+    .test-name { font-size: .9rem; font-weight: 600; color: #e2e8f0; flex: 1; }
+    .test-result { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+    .result-btn { padding: 4px 12px; border-radius: 6px; border: 1px solid; font-size: .75rem; font-weight: 700; cursor: pointer; background: transparent; transition: background .15s, color .15s; letter-spacing: .03em; }
+    .result-btn.pass-btn { border-color: #22c55e; color: #22c55e; }
+    .result-btn.pass-btn.active, .result-btn.pass-btn:hover { background: #22c55e; color: #0f1923; }
+    .result-btn.fail-btn { border-color: #ef4444; color: #ef4444; }
+    .result-btn.fail-btn.active, .result-btn.fail-btn:hover { background: #ef4444; color: #fff; }
+    .result-btn.skip-btn { border-color: #f59e0b; color: #f59e0b; }
+    .result-btn.skip-btn.active, .result-btn.skip-btn:hover { background: #f59e0b; color: #0f1923; }
+    .chevron { color: #4a7a8a; font-size: .75rem; flex-shrink: 0; margin-top: 3px; transition: transform .2s; }
+    .test-card.open .chevron { transform: rotate(90deg); }
+
+    /* Test body */
+    .test-body { display: none; padding: 0 16px 16px; border-top: 1px solid #2e4a5a; margin-top: 0; }
+    .test-card.open .test-body { display: block; }
+    .test-body p { font-size: .85rem; color: #64748b; margin: 12px 0 8px; }
+    .steps { list-style: none; padding: 0; margin: 0; }
+    .steps li { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; font-size: .84rem; color: #94a3b8; line-height: 1.55; border-bottom: 1px solid rgba(46,74,90,.5); }
+    .steps li:last-child { border-bottom: none; }
+    .step-num { background: #264653; color: #2a9d8f; font-size: .72rem; font-weight: 700; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+    .expected { background: rgba(34,197,94,.06); border-left: 3px solid #22c55e; border-radius: 0 6px 6px 0; padding: 8px 12px; font-size: .82rem; color: #86efac; margin-top: 10px; line-height: 1.55; }
+    .expected strong { color: #4ade80; }
+    .note-field { width: 100%; margin-top: 10px; background: #0f1923; border: 1px solid #2e4a5a; border-radius: 6px; padding: 8px 10px; color: #e2e8f0; font-size: .8rem; resize: vertical; min-height: 44px; font-family: inherit; }
+    .note-field::placeholder { color: #4a7a8a; }
+    code { background: #0f1923; border: 1px solid #2e4a5a; border-radius: 3px; padding: 1px 5px; font-size: .8rem; font-family: monospace; color: #2a9d8f; }
+    strong { color: #e2e8f0; }
+  </style>
+</head>
+<body>
+
+<h1>User Test Plan — Personal Finance Analyser</h1>
+<p class="subtitle">Execute each test manually in the browser. Mark Pass / Fail / Skip as you go — results are saved locally in your browser.</p>
+
+<!-- Summary bar -->
+<div class="summary-bar">
+  <div class="summary-stat"><span class="label">Pass</span><span class="num num-pass" id="cnt-pass">0</span></div>
+  <div class="summary-stat"><span class="label">Fail</span><span class="num num-fail" id="cnt-fail">0</span></div>
+  <div class="summary-stat"><span class="label">Skip</span><span class="num num-skip" id="cnt-skip">0</span></div>
+  <div class="summary-stat"><span class="label">Total</span><span class="num num-total" id="cnt-total">0</span></div>
+  <div class="progress-wrap">
+    <div style="font-size:.75rem;color:#64748b;margin-bottom:5px">Completed: <span id="pct-done">0%</span></div>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+  </div>
+  <button class="btn-reset" onclick="resetAll()">Reset All</button>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 1: SERVER STARTUP                      -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">1. Server Startup</div>
+    <div class="section-badge">Prerequisite for all tests</div>
+  </div>
+
+  <div id="T01" class="test-card">
+    <div class="test-header" onclick="toggleCard('T01')">
+      <span class="test-id">T01</span>
+      <span class="test-name">Server starts without errors</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T01','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T01','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T01','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open a terminal in the project folder.</li>
+        <li><span class="step-num">2</span>Run <code>python server.py</code></li>
+        <li><span class="step-num">3</span>Observe the terminal output.</li>
+        <li><span class="step-num">4</span>Open <a href="http://localhost:5100" target="_blank">http://localhost:5100</a> in the browser.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Terminal shows no Python tracebacks. Browser redirects to the live Dashboard at <code>/dashboard</code>. No 500 error page.</div>
+      <textarea class="note-field" id="note-T01" placeholder="Notes / failure details…" oninput="saveNote('T01')"></textarea>
+    </div>
+  </div>
+
+  <div id="T02" class="test-card">
+    <div class="test-header" onclick="toggleCard('T02')">
+      <span class="test-id">T02</span>
+      <span class="test-name">All nav tabs load without 404 or 500</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T02','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T02','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T02','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Click each tab in the Data sub-tab bar: All Transactions, Review, Transfers, FY Summary, Net Worth, Commitments, Subscriptions, Merchant Rules, Reimbursements, Superseded, Recommendations, Coverage, Capital Gains, Cash Flow, Goals.</li>
+        <li><span class="step-num">2</span>Click <strong>Help</strong> in the top navigation.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Every page loads without a browser error page. Active tab is highlighted in the tab bar. Help page shows no sub-tab bar (it has its own section tabs).</div>
+      <textarea class="note-field" id="note-T02" placeholder="Notes / failure details…" oninput="saveNote('T02')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 2: IMPORT WORKFLOW                     -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">2. Import Workflow</div>
+    <div class="section-badge">Requires statement files</div>
+  </div>
+  <div class="prereq">Prerequisite: at least one statement file available (ANZ PDF, PayPal CSV, Revolut CSV, or 28° HTML).</div>
+
+  <div id="T03" class="test-card">
+    <div class="test-header" onclick="toggleCard('T03')">
+      <span class="test-id">T03</span>
+      <span class="test-name">Upload Files modal opens and accepts files</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T03','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T03','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T03','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Click <strong>↑ Upload Files</strong> in the nav bar.</li>
+        <li><span class="step-num">2</span>Confirm the upload modal opens.</li>
+        <li><span class="step-num">3</span>Drag a statement file onto the drop zone (or click to browse and select one).</li>
+        <li><span class="step-num">4</span>Click <strong>Upload &amp; Queue Import</strong>.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Modal opens cleanly. Selected file name and size appear in the list. After clicking upload, a green success message shows the file count. No error message appears.</div>
+      <textarea class="note-field" id="note-T03" placeholder="Notes / failure details…" oninput="saveNote('T03')"></textarea>
+    </div>
+  </div>
+
+  <div id="T04" class="test-card">
+    <div class="test-header" onclick="toggleCard('T04')">
+      <span class="test-id">T04</span>
+      <span class="test-name">Start Import streams progress and completes</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T04','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T04','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T04','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Click <strong>↓ Start Import</strong> in the nav bar.</li>
+        <li><span class="step-num">2</span>Observe the Import Progress modal.</li>
+        <li><span class="step-num">3</span>Wait for the progress log to stop scrolling.</li>
+        <li><span class="step-num">4</span>Click <strong>↻ Reload Page</strong> when it appears.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Progress modal opens immediately. Log lines stream in real time. Button reads "Running…" during import. On completion, "↻ Reload Page" appears and Close is hidden. After reload, the dashboard reflects updated transaction data.</div>
+      <textarea class="note-field" id="note-T04" placeholder="Notes / failure details…" oninput="saveNote('T04')"></textarea>
+    </div>
+  </div>
+
+  <div id="T05" class="test-card">
+    <div class="test-header" onclick="toggleCard('T05')">
+      <span class="test-id">T05</span>
+      <span class="test-name">Re-categorise All runs and completes</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T05','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T05','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T05','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Click <strong>↻ Re-categorise All</strong> in the nav bar.</li>
+        <li><span class="step-num">2</span>Watch the modal titled "Re-categorise Progress".</li>
+        <li><span class="step-num">3</span>Wait for completion and click Reload Page.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Modal title reads "Re-categorise Progress" (not "Import Progress"). Log streams categorisation activity. Completes without error traceback. Reload Page button appears.</div>
+      <textarea class="note-field" id="note-T05" placeholder="Notes / failure details…" oninput="saveNote('T05')"></textarea>
+    </div>
+  </div>
+
+  <div id="T06" class="test-card">
+    <div class="test-header" onclick="toggleCard('T06')">
+      <span class="test-id">T06</span>
+      <span class="test-name">Refresh Charts runs and completes</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T06','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T06','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T06','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Click <strong>↻ Refresh Charts</strong> in the nav bar.</li>
+        <li><span class="step-num">2</span>Watch the modal titled "Refreshing Charts".</li>
+        <li><span class="step-num">3</span>Click Reload Page when it appears.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Modal completes without error. Dashboard chart files are regenerated. After reload, dashboard shows current data.</div>
+      <textarea class="note-field" id="note-T06" placeholder="Notes / failure details…" oninput="saveNote('T06')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 3: NAV BADGES                          -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">3. Navigation Badges</div>
+    <div class="section-badge">Live indicators</div>
+  </div>
+
+  <div id="T07" class="test-card">
+    <div class="test-header" onclick="toggleCard('T07')">
+      <span class="test-id">T07</span>
+      <span class="test-name">Budget alerts badge appears when a category is over / near limit</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T07','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T07','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T07','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Settings → Budgets. Set the limit for a category you have current-month spend in to a very low value (e.g. Groceries → $1). Save.</li>
+        <li><span class="step-num">2</span>Reload any app page.</li>
+        <li><span class="step-num">3</span>Observe the nav bar.</li>
+        <li><span class="step-num">4</span>Hover over the badge.</li>
+        <li><span class="step-num">5</span>Restore the original budget value in Settings → Budgets and reload to confirm the badge disappears.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> A red "N budget alerts" badge appears in the nav bar. Hovering shows a tooltip with per-category breakdown (category name, actual spend, limit, percentage). After restoring the budget, the badge is gone.</div>
+      <textarea class="note-field" id="note-T07" placeholder="Notes / failure details…" oninput="saveNote('T07')"></textarea>
+    </div>
+  </div>
+
+  <div id="T37" class="test-card">
+    <div class="test-header" onclick="toggleCard('T37')">
+      <span class="test-id">T37</span>
+      <span class="test-name">Auto-update banner dismisses and stays dismissed</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T37','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T37','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T37','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>In browser devtools console, run: <code>fetch('/api/update-check').then(r=>r.json()).then(console.log)</code>.</li>
+        <li><span class="step-num">2</span>Confirm the response contains <code>has_update</code> (false if no newer GitHub release) and <code>current</code> (the version string).</li>
+        <li><span class="step-num">3</span>To test the banner: in devtools, set <code>localStorage.removeItem('pfa_update_dismissed')</code>. Then in the console inject: <code>document.getElementById('update-banner').style.display='flex'; document.getElementById('update-banner-msg').textContent='v1.9.9 available';</code></li>
+        <li><span class="step-num">4</span>Click the &times; dismiss button on the banner.</li>
+        <li><span class="step-num">5</span>Reload the page — confirm the banner does not reappear.</li>
+        <li><span class="step-num">6</span>Check <code>localStorage.getItem('pfa_update_dismissed')</code> in devtools — confirm it contains a version string.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> <code>/api/update-check</code> returns valid JSON with <code>has_update</code> key. Banner can be triggered via JS injection. After dismissal, banner stays hidden on reload. localStorage persists the dismissed version.</div>
+      <textarea class="note-field" id="note-T37" placeholder="Notes / failure details…" oninput="saveNote('T37')"></textarea>
+    </div>
+  </div>
+
+  <div id="T08" class="test-card">
+    <div class="test-header" onclick="toggleCard('T08')">
+      <span class="test-id">T08</span>
+      <span class="test-name">API error badge appears when run_metrics.json contains errors</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T08','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T08','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T08','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open <code>Data/run_metrics.json</code> (create it if absent) and set: <code>{"api_errors": 3, "paypal_unmatched": 1}</code>.</li>
+        <li><span class="step-num">2</span>Reload any app page.</li>
+        <li><span class="step-num">3</span>Observe the nav bar near the Start Import button.</li>
+        <li><span class="step-num">4</span>Reset the file to <code>{"api_errors": 0, "paypal_unmatched": 0}</code> and reload to confirm badge disappears.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> A red badge reading "3 API errors · 1 PayPal unmatched" appears. After reset, badge is hidden.</div>
+      <textarea class="note-field" id="note-T08" placeholder="Notes / failure details…" oninput="saveNote('T08')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 4: DASHBOARD                           -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">4. Dashboard</div>
+    <div class="section-badge">/dashboard</div>
+  </div>
+
+  <div id="T09" class="test-card">
+    <div class="test-header" onclick="toggleCard('T09')">
+      <span class="test-id">T09</span>
+      <span class="test-name">Period filter changes all summary cards</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T09','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T09','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T09','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Note the Total Income figure with the current filter.</li>
+        <li><span class="step-num">2</span>Change the period filter to "Last Month".</li>
+        <li><span class="step-num">3</span>Note the Total Income figure changes.</li>
+        <li><span class="step-num">4</span>Select "Custom Range", enter a date range covering a known transaction, click Apply.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Summary cards, charts, and tables all update without a page reload when the period filter changes. Custom range correctly filters to the specified dates.</div>
+      <textarea class="note-field" id="note-T09" placeholder="Notes / failure details…" oninput="saveNote('T09')"></textarea>
+    </div>
+  </div>
+
+  <div id="T10" class="test-card">
+    <div class="test-header" onclick="toggleCard('T10')">
+      <span class="test-id">T10</span>
+      <span class="test-name">Budget status chips show correct colours</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T10','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T10','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T10','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Ensure <code>config.yaml</code> has a <code>budgets:</code> section with at least one category that has current-month transactions.</li>
+        <li><span class="step-num">2</span>Open the Dashboard and locate the Budget Status section.</li>
+        <li><span class="step-num">3</span>Confirm green chips for under-budget, amber for 80–99%, red for over 100%.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Budget chips visible. Colour coding matches spend vs budget: green (under), amber (≥80%), red (≥100%). Each chip shows the category name and spend/budget figures.</div>
+      <textarea class="note-field" id="note-T10" placeholder="Notes / failure details…" oninput="saveNote('T10')"></textarea>
+    </div>
+  </div>
+
+  <div id="T11" class="test-card">
+    <div class="test-header" onclick="toggleCard('T11')">
+      <span class="test-id">T11</span>
+      <span class="test-name">Charts render and toggle views</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T11','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T11','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T11','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Confirm the Monthly Income vs Expenses bar chart is visible.</li>
+        <li><span class="step-num">2</span>Toggle between "Income &amp; Expenses", "Expenses Only", and "Income Only" using the view buttons.</li>
+        <li><span class="step-num">3</span>Confirm the Spend by Category / Income by Source chart updates when toggling view.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Charts render with data. Each toggle changes the chart content immediately without a page reload. No blank or error state.</div>
+      <textarea class="note-field" id="note-T11" placeholder="Notes / failure details…" oninput="saveNote('T11')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 5: ALL TRANSACTIONS                    -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">5. All Transactions</div>
+    <div class="section-badge">transactions.html</div>
+  </div>
+
+  <div id="T12" class="test-card">
+    <div class="test-header" onclick="toggleCard('T12')">
+      <span class="test-id">T12</span>
+      <span class="test-name">Search, filter, and amount range narrow the transaction list without freezing</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T12','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T12','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T12','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Note the total row count shown. Confirm page controls are present below the table (page 1 of N).</li>
+        <li><span class="step-num">2</span>Type a known merchant name into the search box — confirm only matching rows appear.</li>
+        <li><span class="step-num">3</span>Clear the search. Use the Category dropdown to filter to one category.</li>
+        <li><span class="step-num">4</span>Use the Account dropdown to filter to one account.</li>
+        <li><span class="step-num">5</span>Enter a value (e.g. 50) into the Min $ field — confirm the list updates without freezing after a brief pause. Enter a Max $ value as well.</li>
+        <li><span class="step-num">6</span>Clear all filters and confirm the full count returns across all pages.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Each filter narrows the list correctly. Min/Max amount filter applies without browser freeze (debounced). Results are paginated (100 rows per page); page controls update with each filter change. Clearing filters restores the full count.</div>
+      <textarea class="note-field" id="note-T12" placeholder="Notes / failure details…" oninput="saveNote('T12')"></textarea>
+    </div>
+  </div>
+
+  <div id="T13" class="test-card">
+    <div class="test-header" onclick="toggleCard('T13')">
+      <span class="test-id">T13</span>
+      <span class="test-name">Change category and sub-category on a transaction</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T13','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T13','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T13','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Find any transaction and note its current category.</li>
+        <li><span class="step-num">2</span>Click <strong>Change</strong> on that row.</li>
+        <li><span class="step-num">3</span>Select a category (e.g. "Dining Out") — confirm the sub-category dropdown populates with options for that category (e.g. Breakfast, Lunch, Dinner…).</li>
+        <li><span class="step-num">4</span>Select a sub-category (e.g. "Lunch").</li>
+        <li><span class="step-num">5</span>Click <strong>Save</strong> and confirm the modal closes.</li>
+        <li><span class="step-num">6</span>Change to a different category — confirm the sub-category dropdown repopulates for the new category.</li>
+        <li><span class="step-num">7</span>Select <strong>+ Add new sub-category…</strong>, type a custom value, and save. Confirm the custom value is selectable on the next Change.</li>
+        <li><span class="step-num">8</span>Reload the page — confirm category and sub-category both persist.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Sub-category dropdown populates based on selected category. Both values save together. Custom sub-categories added via the modal appear in future dropdowns (saved to Data/custom_subcats.json). After reload, both category and sub-category are correct.</div>
+      <textarea class="note-field" id="note-T13" placeholder="Notes / failure details…" oninput="saveNote('T13')"></textarea>
+    </div>
+  </div>
+
+  <div id="T14" class="test-card">
+    <div class="test-header" onclick="toggleCard('T14')">
+      <span class="test-id">T14</span>
+      <span class="test-name">BIZ, TAX, and GST flags toggle correctly</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T14','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T14','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T14','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Find an expense transaction with no flags.</li>
+        <li><span class="step-num">2</span>Click <strong>Flags</strong> on that row — confirm the flags modal or inline toggles appear.</li>
+        <li><span class="step-num">3</span>Enable the <span style="background:#FB5607;color:white;border-radius:3px;padding:1px 5px;font-size:.8em">BIZ</span> flag. Confirm the orange BIZ badge appears on the row.</li>
+        <li><span class="step-num">4</span>Enable the <span style="background:#7C3AED;color:white;border-radius:3px;padding:1px 5px;font-size:.8em">TAX</span> flag. Confirm the purple TAX badge appears.</li>
+        <li><span class="step-num">5</span>Enable the <span style="background:#059669;color:white;border-radius:3px;padding:1px 5px;font-size:.8em">GST</span> flag. Confirm the green GST badge appears.</li>
+        <li><span class="step-num">6</span>Reload the page — confirm all three flags persist.</li>
+        <li><span class="step-num">7</span>Toggle all three off — badges disappear.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Each flag saves immediately without a Save button. Badges appear and disappear correctly. State persists after page reload.</div>
+      <textarea class="note-field" id="note-T14" placeholder="Notes / failure details…" oninput="saveNote('T14')"></textarea>
+    </div>
+  </div>
+
+  <div id="T15" class="test-card">
+    <div class="test-header" onclick="toggleCard('T15')">
+      <span class="test-id">T15</span>
+      <span class="test-name">Column header sort works</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T15','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T15','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T15','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Click the <strong>Amount</strong> column header.</li>
+        <li><span class="step-num">2</span>Click it again.</li>
+        <li><span class="step-num">3</span>Click the <strong>Date</strong> column header.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> First click sorts ascending, second click sorts descending. Date sort puts most recent or oldest first depending on direction.</div>
+      <textarea class="note-field" id="note-T15" placeholder="Notes / failure details…" oninput="saveNote('T15')"></textarea>
+    </div>
+  </div>
+
+  <div id="T42" class="test-card">
+    <div class="test-header" onclick="toggleCard('T42')">
+      <span class="test-id">T42</span>
+      <span class="test-name">Split a transaction via the API and verify SPLIT badge appears</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T42','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T42','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T42','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <p style="color:#d4a21a;font-size:.82rem;margin-bottom:8px">Note: split initiation is currently API-only — no UI button exists yet. Use browser devtools console or curl.</p>
+      <ol class="steps">
+        <li><span class="step-num">1</span>Find a transaction ID to split (hover its description — the txn_id is shown in the Change modal title, or check the URL when the modal is open). Use a transaction with a known amount, e.g. <code>-$100.00</code>.</li>
+        <li><span class="step-num">2</span>In browser devtools console, run:<br><code>fetch('/api/txn/YOUR_TXN_ID/split', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({splits:[{description:'Part A',amount:-60,category:'Groceries'},{description:'Part B',amount:-40,category:'Dining Out'}]})}).then(r=>r.json()).then(console.log)</code></li>
+        <li><span class="step-num">3</span>Confirm the response contains <code>"ok": true</code> and two child IDs.</li>
+        <li><span class="step-num">4</span>Re-generate reports (upload a file or wait for the next pipeline run), then reload the Transactions page.</li>
+        <li><span class="step-num">5</span>Find the parent transaction — confirm a green <strong>SPLIT</strong> badge appears next to the description.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> API returns <code>ok: true</code>. After report regeneration, parent row shows SPLIT badge. The two child transactions do NOT appear as separate rows in the default view (they're hidden inside the parent).</div>
+      <textarea class="note-field" id="note-T42" placeholder="Notes / failure details…" oninput="saveNote('T42')"></textarea>
+    </div>
+  </div>
+
+  <div id="T43" class="test-card">
+    <div class="test-header" onclick="toggleCard('T43')">
+      <span class="test-id">T43</span>
+      <span class="test-name">Expand split children, verify detail, then unsplit</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T43','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T43','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T43','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>On the parent transaction from T42, click the <strong>&#8942;</strong> expand button next to the SPLIT badge.</li>
+        <li><span class="step-num">2</span>Confirm a table appears below the row listing both child transactions with their descriptions, amounts, and categories.</li>
+        <li><span class="step-num">3</span>Click the expand button again — confirm the detail collapses.</li>
+        <li><span class="step-num">4</span>Expand again, then click <strong>✖ Remove split</strong>.</li>
+        <li><span class="step-num">5</span>Confirm the alert says "Split removed. Re-generate reports to update the view."</li>
+        <li><span class="step-num">6</span>Re-generate reports and reload — confirm the SPLIT badge is gone and the original transaction is back as a single row.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Expand/collapse works correctly. Children detail shows both rows with correct amounts summing to the original. Unsplit API call succeeds. After report reload, transaction appears as a single unflagged row.</div>
+      <textarea class="note-field" id="note-T43" placeholder="Notes / failure details…" oninput="saveNote('T43')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 6: REVIEW                              -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">6. Review</div>
+    <div class="section-badge">/review</div>
+  </div>
+
+  <div id="T16" class="test-card">
+    <div class="test-header" onclick="toggleCard('T16')">
+      <span class="test-id">T16</span>
+      <span class="test-name">Assign a category to an uncategorised merchant</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T16','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T16','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T16','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <div class="prereq" style="margin:12px 0 8px">Requires at least one Miscellaneous transaction in the database.</div>
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Data → Review.</li>
+        <li><span class="step-num">2</span>Find a merchant group. Note the transaction count.</li>
+        <li><span class="step-num">3</span>Select a category from the category dropdown next to that merchant — confirm the sub-category dropdown populates for that category.</li>
+        <li><span class="step-num">4</span>Select a sub-category — confirm both dropdowns save instantly (no Save button).</li>
+        <li><span class="step-num">5</span>Change the category to something else — confirm the sub-category dropdown repopulates for the new category.</li>
+        <li><span class="step-num">6</span>Confirm the merchant group disappears from the Review list (since it's no longer Miscellaneous).</li>
+        <li><span class="step-num">7</span>Open All Transactions and search for that merchant — confirm both category and sub-category are updated.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Both category and sub-category save instantly — no Save button. Sub-category dropdown repopulates when category changes. Merchant removed from Review list. All transactions from that merchant updated in the DB with both values.</div>
+      <textarea class="note-field" id="note-T16" placeholder="Notes / failure details…" oninput="saveNote('T16')"></textarea>
+    </div>
+  </div>
+
+  <div id="T17" class="test-card">
+    <div class="test-header" onclick="toggleCard('T17')">
+      <span class="test-id">T17</span>
+      <span class="test-name">Expand row to see individual transactions and add a note</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T17','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T17','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T17','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Click the expand arrow (▶) on a merchant group.</li>
+        <li><span class="step-num">2</span>Confirm individual transaction rows appear.</li>
+        <li><span class="step-num">3</span>Add a note to one transaction and confirm it saves.</li>
+        <li><span class="step-num">4</span>Reload and confirm the note persists in All Transactions.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Expand arrow reveals individual transactions. Note field saves without a page reload. Note visible in All Transactions after reload.</div>
+      <textarea class="note-field" id="note-T17" placeholder="Notes / failure details…" oninput="saveNote('T17')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 7: FY SUMMARY                          -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">7. FY Summary</div>
+    <div class="section-badge">/fy-summary</div>
+  </div>
+
+  <div id="T18" class="test-card">
+    <div class="test-header" onclick="toggleCard('T18')">
+      <span class="test-id">T18</span>
+      <span class="test-name">FY tabs present and KPI banner correct</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T18','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T18','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T18','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Data → FY Summary.</li>
+        <li><span class="step-num">2</span>Confirm FY tabs are present (one per financial year in your data).</li>
+        <li><span class="step-num">3</span>Click each tab — confirm the KPI banner (Taxable Income, Total Expenditure, Net Savings, Savings Rate) updates.</li>
+        <li><span class="step-num">4</span>Confirm Board & Lodging is labelled as ATO-exempt in the income table.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> At least one FY tab present. KPI banner figures change between years. Board & Lodging and Business Reimbursements have ATO-exempt badge and are excluded from Taxable Income.</div>
+      <textarea class="note-field" id="note-T18" placeholder="Notes / failure details…" oninput="saveNote('T18')"></textarea>
+    </div>
+  </div>
+
+  <div id="T19" class="test-card">
+    <div class="test-header" onclick="toggleCard('T19')">
+      <span class="test-id">T19</span>
+      <span class="test-name">GST Claimable section appears for flagged transactions</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T19','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T19','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T19','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Flag at least one expense transaction as GST Claimable (via All Transactions → Flags → GST).</li>
+        <li><span class="step-num">2</span>Run <strong>Refresh Charts</strong>.</li>
+        <li><span class="step-num">3</span>Open FY Summary for the year containing that transaction.</li>
+        <li><span class="step-num">4</span>Scroll to the GST Claimable section.</li>
+        <li><span class="step-num">5</span>Verify the claimable GST amount equals approximately 1/11th of the flagged transaction total.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> GST Claimable section is present and lists the flagged transactions. The total claimable amount = total spend ÷ 11 (ATO 1/11th rule). If no transactions are flagged, a prompt to flag them appears instead.</div>
+      <textarea class="note-field" id="note-T19" placeholder="Notes / failure details…" oninput="saveNote('T19')"></textarea>
+    </div>
+  </div>
+
+  <div id="T20" class="test-card">
+    <div class="test-header" onclick="toggleCard('T20')">
+      <span class="test-id">T20</span>
+      <span class="test-name">Tax-Deductible Expenses section populated for TAX-flagged transactions</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T20','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T20','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T20','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Flag at least one expense transaction as Tax Deductible (TAX flag in All Transactions).</li>
+        <li><span class="step-num">2</span>Run Refresh Charts, open FY Summary.</li>
+        <li><span class="step-num">3</span>Confirm the Tax-Deductible Expenses section lists the flagged transaction(s) with correct amounts.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> TAX-flagged transactions appear in the Tax-Deductible Expenses section with date, description, amount, and category. Total is summed correctly.</div>
+      <textarea class="note-field" id="note-T20" placeholder="Notes / failure details…" oninput="saveNote('T20')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 8: COMMITMENTS                         -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">8. Commitments</div>
+    <div class="section-badge">/commitments</div>
+  </div>
+
+  <div id="T21" class="test-card">
+    <div class="test-header" onclick="toggleCard('T21')">
+      <span class="test-id">T21</span>
+      <span class="test-name">Add, edit, and delete a commitment</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T21','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T21','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T21','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Data → Commitments. Click <strong>Add Commitment</strong> (or equivalent).</li>
+        <li><span class="step-num">2</span>Fill in: name "Test Rent", amount 1200, frequency Monthly, next due date tomorrow.</li>
+        <li><span class="step-num">3</span>Save — confirm "Test Rent" appears in the list.</li>
+        <li><span class="step-num">4</span>Click Edit — change the amount to 1300 and save.</li>
+        <li><span class="step-num">5</span>Reload and confirm the updated amount persists.</li>
+        <li><span class="step-num">6</span>Click Delete — confirm the item is removed and a reload confirms it is gone.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> All CRUD operations persist to <code>Data/commitments.json</code>. List updates immediately after each action. Delete requires no page reload to confirm removal.</div>
+      <textarea class="note-field" id="note-T21" placeholder="Notes / failure details…" oninput="saveNote('T21')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 9: MERCHANT RULES                      -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">9. Merchant Rules</div>
+    <div class="section-badge">/merchant-rules</div>
+  </div>
+
+  <div id="T22" class="test-card">
+    <div class="test-header" onclick="toggleCard('T22')">
+      <span class="test-id">T22</span>
+      <span class="test-name">Add a rule and verify it categorises matching transactions</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T22','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T22','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T22','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Find a transaction in All Transactions that is "Miscellaneous" — note the description text.</li>
+        <li><span class="step-num">2</span>Open Merchant Rules. Add a rule: pattern = a unique substring of that description, category = any non-Miscellaneous category.</li>
+        <li><span class="step-num">3</span>Run <strong>Re-categorise All</strong> from the nav bar.</li>
+        <li><span class="step-num">4</span>Open All Transactions — find the same transaction and confirm its category updated.</li>
+        <li><span class="step-num">5</span>Delete the test rule.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Rule appears in the list immediately after adding. After Re-categorise All, the matched transaction has the new category. Deleting the rule removes it from the list.</div>
+      <textarea class="note-field" id="note-T22" placeholder="Notes / failure details…" oninput="saveNote('T22')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 10: CASH FLOW                          -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">10. Cash Flow</div>
+    <div class="section-badge">/cash-flow</div>
+  </div>
+
+  <div id="T23" class="test-card">
+    <div class="test-header" onclick="toggleCard('T23')">
+      <span class="test-id">T23</span>
+      <span class="test-name">Horizon toggles update all cards and chart</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T23','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T23','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T23','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Data → Cash Flow.</li>
+        <li><span class="step-num">2</span>Note the Committed Outflows and Estimated Variable Spend figures for 30 days.</li>
+        <li><span class="step-num">3</span>Click <strong>60 days</strong> — confirm figures roughly double.</li>
+        <li><span class="step-num">4</span>Click <strong>90 days</strong> — confirm further increase.</li>
+        <li><span class="step-num">5</span>Click <strong>12 months</strong> — confirm figures increase substantially and the chart extends over a full year.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> All four toggle buttons (30 / 60 / 90 / 12 months) work. Summary cards and the Plotly chart update instantly without a page reload. The active toggle is visually highlighted.</div>
+      <textarea class="note-field" id="note-T23" placeholder="Notes / failure details…" oninput="saveNote('T23')"></textarea>
+    </div>
+  </div>
+
+  <div id="T24" class="test-card">
+    <div class="test-header" onclick="toggleCard('T24')">
+      <span class="test-id">T24</span>
+      <span class="test-name">Committed outflows reflect Commitments list</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T24','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T24','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T24','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Note the Committed Outflows total for 30 days.</li>
+        <li><span class="step-num">2</span>Add a new Commitment with a due date within 30 days and a known amount (e.g. $500 monthly).</li>
+        <li><span class="step-num">3</span>Reload Cash Flow — confirm the 30-day committed total increased by approximately $500.</li>
+        <li><span class="step-num">4</span>Delete the test commitment.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Adding a commitment with a due date within the horizon increases the committed outflow total by the commitment amount. Deleting it reverses the change after reload.</div>
+      <textarea class="note-field" id="note-T24" placeholder="Notes / failure details…" oninput="saveNote('T24')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 11: FINANCIAL GOALS                    -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">11. Financial Goals</div>
+    <div class="section-badge">/financial-goals</div>
+  </div>
+
+  <div id="T25" class="test-card">
+    <div class="test-header" onclick="toggleCard('T25')">
+      <span class="test-id">T25</span>
+      <span class="test-name">Add a goal and verify progress bar and estimated completion</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T25','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T25','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T25','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Data → Goals. Click <strong>+ Add Goal</strong>.</li>
+        <li><span class="step-num">2</span>Fill in: name "Emergency Fund Test", category Savings, target $10,000, current $2,500, contribution $500, frequency Monthly.</li>
+        <li><span class="step-num">3</span>Save — confirm the goal card appears.</li>
+        <li><span class="step-num">4</span>Verify the progress bar shows 25%.</li>
+        <li><span class="step-num">5</span>Verify an estimated completion date is shown (approximately 15 months from now).</li>
+        <li><span class="step-num">6</span>Confirm the Monthly Commitment summary card includes the $500 contribution.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Goal card appears with a 25% progress bar ($2,500 / $10,000). Estimated completion date shown. Monthly Commitment total increases by $500.</div>
+      <textarea class="note-field" id="note-T25" placeholder="Notes / failure details…" oninput="saveNote('T25')"></textarea>
+    </div>
+  </div>
+
+  <div id="T26" class="test-card">
+    <div class="test-header" onclick="toggleCard('T26')">
+      <span class="test-id">T26</span>
+      <span class="test-name">Edit goal updates progress; delete removes it</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T26','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T26','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T26','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Click <strong>Edit</strong> on the "Emergency Fund Test" goal from T25.</li>
+        <li><span class="step-num">2</span>Change current amount from $2,500 to $5,000. Save.</li>
+        <li><span class="step-num">3</span>Confirm the progress bar updates to 50%.</li>
+        <li><span class="step-num">4</span>Reload and confirm the change persists.</li>
+        <li><span class="step-num">5</span>Click <strong>Delete</strong> — confirm the goal is removed from the list.</li>
+        <li><span class="step-num">6</span>Reload and confirm it is gone from <code>Data/financial_goals.json</code>.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Progress bar reflects updated current amount (50%). Changes persist after reload. Delete removes the goal permanently.</div>
+      <textarea class="note-field" id="note-T26" placeholder="Notes / failure details…" oninput="saveNote('T26')"></textarea>
+    </div>
+  </div>
+
+  <div id="T27" class="test-card">
+    <div class="test-header" onclick="toggleCard('T27')">
+      <span class="test-id">T27</span>
+      <span class="test-name">Search filters goals by name and category</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T27','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T27','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T27','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Add at least two goals with different names and categories.</li>
+        <li><span class="step-num">2</span>Type part of one goal's name in the search box.</li>
+        <li><span class="step-num">3</span>Confirm only matching goals are shown.</li>
+        <li><span class="step-num">4</span>Clear the search — confirm all goals return.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Search filters the goals list client-side immediately. Clearing the search box restores all goals.</div>
+      <textarea class="note-field" id="note-T27" placeholder="Notes / failure details…" oninput="saveNote('T27')"></textarea>
+    </div>
+  </div>
+</div>
+
+  <div id="T36" class="test-card">
+    <div class="test-header" onclick="toggleCard('T36')">
+      <span class="test-id">T36</span>
+      <span class="test-name">Loans — add a loan, link transactions via keywords, view statement</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T36','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T36','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T36','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Data → Goals &amp; Loans. Switch to the Loans section.</li>
+        <li><span class="step-num">2</span>Click <strong>+ Add Loan</strong>. Set direction, name, and at least a Repayment keyword matching a word in a known repayment transaction description. Save.</li>
+        <li><span class="step-num">3</span>Confirm the loan card appears with a Loan Position showing total received and repaid.</li>
+        <li><span class="step-num">4</span>Check the Unlinked Loan Transactions panel — confirm transactions matching the keyword are no longer listed there.</li>
+        <li><span class="step-num">5</span>Add a Receipt keyword matching the disbursement transaction — confirm those transactions also leave the Unlinked panel.</li>
+        <li><span class="step-num">6</span>Click <strong>View Statement</strong> on the loan — confirm a printable statement opens at <code>/loans/&lt;id&gt;/statement</code> listing all matched transactions with a running balance.</li>
+        <li><span class="step-num">7</span>Click <strong>Edit</strong> on the loan, change the name or a keyword, save — confirm changes persist after reload.</li>
+        <li><span class="step-num">8</span>Delete the test loan — confirm it is removed and the Unlinked panel reflects the change.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Loan card appears with correct position. Transactions matching either keyword are automatically linked (no manual action). Unlinked panel shrinks when keywords are set. Statement shows all matched transactions with correct running balance. Edit and delete persist.</div>
+      <textarea class="note-field" id="note-T36" placeholder="Notes / failure details…" oninput="saveNote('T36')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 12: COVERAGE                           -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">12. Coverage</div>
+    <div class="section-badge">/coverage</div>
+  </div>
+
+  <div id="T28" class="test-card">
+    <div class="test-header" onclick="toggleCard('T28')">
+      <span class="test-id">T28</span>
+      <span class="test-name">Coverage matrix shows accounts and highlights gaps</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T28','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T28','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T28','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Data → Coverage.</li>
+        <li><span class="step-num">2</span>Confirm a matrix of accounts (rows) × months (columns) is shown.</li>
+        <li><span class="step-num">3</span>Confirm cells with transactions show a count; cells with gaps within an active range show a red "!" marker.</li>
+        <li><span class="step-num">4</span>Check the alert banner at the top — green if no gaps, amber with count if gaps exist.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Matrix renders with all known accounts. Gap cells are visually distinct (red). Dark/inactive cells correctly indicate out-of-range months. Alert banner count matches the number of red cells.</div>
+      <textarea class="note-field" id="note-T28" placeholder="Notes / failure details…" oninput="saveNote('T28')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 13: CAPITAL GAINS                      -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">13. Capital Gains</div>
+    <div class="section-badge">/capital-gains</div>
+  </div>
+
+  <div id="T29" class="test-card">
+    <div class="test-header" onclick="toggleCard('T29')">
+      <span class="test-id">T29</span>
+      <span class="test-name">Enter CGT data; net taxable auto-calculates; appears in FY Summary</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T29','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T29','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T29','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Data → Capital Gains. Find a FY card.</li>
+        <li><span class="step-num">2</span>Enter: Gross Capital Gains = $10,000, CGT Discount = $5,000, Capital Losses = $1,000.</li>
+        <li><span class="step-num">3</span>Confirm Net Taxable Capital Gains shows $4,000 automatically.</li>
+        <li><span class="step-num">4</span>Click <strong>Save</strong> for that FY.</li>
+        <li><span class="step-num">5</span>Reload the page and confirm the values persist.</li>
+        <li><span class="step-num">6</span>Run Refresh Charts, open FY Summary for the same year — confirm CGT data appears there.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Net Taxable = Gross − Discount − Losses ($4,000). Values persist after reload. FY Summary shows the CGT section with the saved figures.</div>
+      <textarea class="note-field" id="note-T29" placeholder="Notes / failure details…" oninput="saveNote('T29')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 14: RECOMMENDATIONS                    -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">14. Recommendations</div>
+    <div class="section-badge">/recommendations</div>
+  </div>
+  <div class="prereq">Prerequisite: <code>ANTHROPIC_API_KEY</code> environment variable set with a valid key and credit balance.</div>
+
+  <div id="T30" class="test-card">
+    <div class="test-header" onclick="toggleCard('T30')">
+      <span class="test-id">T30</span>
+      <span class="test-name">Refresh generates AI recommendations for the selected period</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T30','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T30','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T30','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Data → Recommendations.</li>
+        <li><span class="step-num">2</span>Select period "Last 12 Months" from the dropdown.</li>
+        <li><span class="step-num">3</span>Click <strong>↻ Refresh</strong>.</li>
+        <li><span class="step-num">4</span>Wait 15–30 seconds for the API response.</li>
+        <li><span class="step-num">5</span>Confirm the recommendations content is replaced with a new analysis.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Refresh button shows loading state during generation. New markdown-formatted analysis appears covering subscriptions, spend patterns, and Quick Wins. No error message.</div>
+      <textarea class="note-field" id="note-T30" placeholder="Notes / failure details…" oninput="saveNote('T30')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 15: HELP PAGE                          -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">15. Help Page</div>
+    <div class="section-badge">/help</div>
+  </div>
+
+  <div id="T31" class="test-card">
+    <div class="test-header" onclick="toggleCard('T31')">
+      <span class="test-id">T31</span>
+      <span class="test-name">All four help tabs switch correctly; no sub-tab bar shown</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T31','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T31','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T31','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Help from the top nav.</li>
+        <li><span class="step-num">2</span>Confirm the Data sub-tab bar (All Transactions, Review, etc.) is NOT shown on the Help page.</li>
+        <li><span class="step-num">3</span>Click each of the four section tabs: Dashboard, Reports, Data, Errors &amp; Actions.</li>
+        <li><span class="step-num">4</span>In the Data tab, confirm the Planning section group contains Cash Flow and Financial Goals.</li>
+        <li><span class="step-num">5</span>Click the "App Wiring Diagram" and "Help Structure Diagram" links in the subtitle — confirm both open without 404.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Sub-tab bar absent on Help. Each section tab shows different content. Planning section group visible with Cash Flow and Financial Goals sections. Both diagram links open the Mermaid diagrams in a new tab.</div>
+      <textarea class="note-field" id="note-T31" placeholder="Notes / failure details…" oninput="saveNote('T31')"></textarea>
+    </div>
+  </div>
+
+  <div id="T32" class="test-card">
+    <div class="test-header" onclick="toggleCard('T32')">
+      <span class="test-id">T32</span>
+      <span class="test-name">Toolbar Buttons table covers all six buttons and badges</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T32','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T32','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T32','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Help → Dashboard tab.</li>
+        <li><span class="step-num">2</span>Review the Toolbar Buttons table.</li>
+        <li><span class="step-num">3</span>Confirm rows exist for: Start Import, Upload Files, Refresh Charts, Re-categorise All, Budget Alerts badge, and API Errors badge.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> All six entries present. Budget alerts badge entry explains red vs amber. API errors entry mentions both API errors and PayPal unmatched counts.</div>
+      <textarea class="note-field" id="note-T32" placeholder="Notes / failure details…" oninput="saveNote('T32')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 16: LOCAL AUTH (if configured)         -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">16. Local Auth</div>
+    <div class="section-badge">Optional — skip if password not configured</div>
+  </div>
+  <div class="prereq">Skip this section if <code>server.password_hash</code> is not set in <code>config.yaml</code>.</div>
+
+  <div id="T33" class="test-card">
+    <div class="test-header" onclick="toggleCard('T33')">
+      <span class="test-id">T33</span>
+      <span class="test-name">Unauthenticated request redirects to /login</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T33','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T33','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T33','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Generate a password hash using the one-liner in <code>config.yaml</code> and add it under <code>server: password_hash:</code>.</li>
+        <li><span class="step-num">2</span>Restart the server.</li>
+        <li><span class="step-num">3</span>Open an incognito browser window and navigate to <code>http://localhost:5100</code>.</li>
+        <li><span class="step-num">4</span>Confirm you are redirected to <code>/login</code>.</li>
+        <li><span class="step-num">5</span>Enter the correct password — confirm you reach the Dashboard.</li>
+        <li><span class="step-num">6</span>Navigate to <code>/logout</code> — confirm redirect back to <code>/login</code>.</li>
+        <li><span class="step-num">7</span>Enter a wrong password — confirm an error message is shown and access is denied.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Unauthenticated visits redirect to /login. Correct password grants full access. Wrong password shows error, stays on /login. Logout clears the session.</div>
+      <textarea class="note-field" id="note-T33" placeholder="Notes / failure details…" oninput="saveNote('T33')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 17: WIRING DIAGRAMS                    -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">17. Reference Diagrams</div>
+    <div class="section-badge">docs/</div>
+  </div>
+
+  <div id="T34" class="test-card">
+    <div class="test-header" onclick="toggleCard('T34')">
+      <span class="test-id">T34</span>
+      <span class="test-name">App wiring diagram renders completely</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T34','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T34','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T34','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Navigate to <a href="/docs/app_wiring.html" target="_blank">/docs/app_wiring.html</a>.</li>
+        <li><span class="step-num">2</span>Confirm the Mermaid diagram renders (not raw text).</li>
+        <li><span class="step-num">3</span>Confirm the Key Data Flows table below the diagram is present.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Diagram renders as a visual flowchart with labelled nodes and edges. Key Data Flows table shows 5 rows. No "Mermaid is not defined" JS errors in browser console.</div>
+      <textarea class="note-field" id="note-T34" placeholder="Notes / failure details…" oninput="saveNote('T34')"></textarea>
+    </div>
+  </div>
+
+  <div id="T35" class="test-card">
+    <div class="test-header" onclick="toggleCard('T35')">
+      <span class="test-id">T35</span>
+      <span class="test-name">Help structure diagram renders completely</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T35','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T35','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T35','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Navigate to <a href="/docs/help_structure.html" target="_blank">/docs/help_structure.html</a>.</li>
+        <li><span class="step-num">2</span>Confirm the Mermaid diagram renders showing the nav hierarchy.</li>
+        <li><span class="step-num">3</span>Confirm the Nav → Help Cross-Reference table lists all 17 pages/routes.</li>
+        <li><span class="step-num">4</span>Confirm the Template Types table is present.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Diagram renders as a visual hierarchy showing /dashboard as the top-level nav root. Cross-reference table has a row for every page in the app (at least 19 rows). Template Types table explains generated vs live vs partial templates.</div>
+      <textarea class="note-field" id="note-T35" placeholder="Notes / failure details…" oninput="saveNote('T35')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 18: SUBSCRIPTIONS                      -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">18. Subscriptions</div>
+    <div class="section-badge">/subscriptions</div>
+  </div>
+
+  <div id="T38" class="test-card">
+    <div class="test-header" onclick="toggleCard('T38')">
+      <span class="test-id">T38</span>
+      <span class="test-name">Subscriptions page loads with cost summary and active table</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T38','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T38','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T38','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <div class="prereq">Prerequisite: at least one commitment configured (Data → Commitments).</div>
+      <ol class="steps">
+        <li><span class="step-num">1</span>Click the <strong>Subscriptions</strong> tab in the Data sub-tab bar.</li>
+        <li><span class="step-num">2</span>Confirm the summary grid at the top shows four stat cards: Monthly Cost, Annual Cost, Active Count, and Cancelled Count.</li>
+        <li><span class="step-num">3</span>Confirm the active subscriptions table is present with columns: Name, Category, Freq, Monthly Cost, Annual Cost, Last Charged, Next Due, Action.</li>
+        <li><span class="step-num">4</span>Verify the Monthly Cost and Annual Cost figures are non-zero and plausible (Annual ≈ Monthly × 12).</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Page loads without error. Summary stat cards show correct totals. Active table lists all non-cancelled commitments sorted by monthly cost descending. Monthly and annual figures are consistent.</div>
+      <textarea class="note-field" id="note-T38" placeholder="Notes / failure details…" oninput="saveNote('T38')"></textarea>
+    </div>
+  </div>
+
+  <div id="T39" class="test-card">
+    <div class="test-header" onclick="toggleCard('T39')">
+      <span class="test-id">T39</span>
+      <span class="test-name">Cancel a subscription and restore it</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T39','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T39','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T39','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>On the Subscriptions page, note a subscription in the active table.</li>
+        <li><span class="step-num">2</span>Click <strong>Cancel</strong> in its row.</li>
+        <li><span class="step-num">3</span>Confirm the row disappears from the active table. Check that the Cancelled section now lists it.</li>
+        <li><span class="step-num">4</span>Confirm the Monthly Cost and Active Count stat cards decreased.</li>
+        <li><span class="step-num">5</span>Click <strong>Show Cancelled</strong> (or the toggle) to reveal the cancelled section. Click <strong>Restore</strong> on the subscription.</li>
+        <li><span class="step-num">6</span>Confirm it returns to the active table and the stats update back to their original values.</li>
+        <li><span class="step-num">7</span>Reload the page — confirm the restored subscription is still active (change was persisted).</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Cancel moves the item to Cancelled. Stats update immediately. Restore returns it to Active. Reload confirms persistence via Data/commitments.json.</div>
+      <textarea class="note-field" id="note-T39" placeholder="Notes / failure details…" oninput="saveNote('T39')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 19: BUDGET MANAGEMENT                  -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">19. Budget Management</div>
+    <div class="section-badge">Settings → Budgets</div>
+  </div>
+
+  <div id="T40" class="test-card">
+    <div class="test-header" onclick="toggleCard('T40')">
+      <span class="test-id">T40</span>
+      <span class="test-name">Budget rollover checkbox saves and persists in budgets.json</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T40','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T40','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T40','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Settings → Budgets.</li>
+        <li><span class="step-num">2</span>Confirm a <strong>Rollover ℹ</strong> column is visible with a checkbox per category row.</li>
+        <li><span class="step-num">3</span>Check the Rollover box for one category (e.g. Groceries). Click <strong>Save Budgets</strong>.</li>
+        <li><span class="step-num">4</span>Reload the Settings → Budgets page. Confirm the Rollover checkbox for that category is still checked.</li>
+        <li><span class="step-num">5</span>Open <code>Data/budgets.json</code> in a text editor and confirm it contains a <code>"rollover"</code> key with the category name set to <code>true</code>.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Rollover column visible with per-category checkboxes. Checked state persists after page reload. <code>Data/budgets.json</code> contains <code>"rollover": {"Groceries": true}</code>.</div>
+      <textarea class="note-field" id="note-T40" placeholder="Notes / failure details…" oninput="saveNote('T40')"></textarea>
+    </div>
+  </div>
+
+  <div id="T41" class="test-card">
+    <div class="test-header" onclick="toggleCard('T41')">
+      <span class="test-id">T41</span>
+      <span class="test-name">Budget suggestions load and "Use" / "Use all" populate the table</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T41','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T41','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T41','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Settings → Budgets.</li>
+        <li><span class="step-num">2</span>Click <strong>Load suggestions (3 months)</strong> (or the suggestions button).</li>
+        <li><span class="step-num">3</span>Confirm a Suggested column appears with values for each category that has spend history.</li>
+        <li><span class="step-num">4</span>Click <strong>Use</strong> on one row — confirm the budget input for that row is populated with the suggested amount.</li>
+        <li><span class="step-num">5</span>Click <strong>Use all</strong> — confirm all budget inputs are filled with suggested amounts.</li>
+        <li><span class="step-num">6</span>Save and reload — confirm the values persisted.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Suggestions based on average monthly spend (rounded up to nearest $25). "Use" fills one row; "Use all" fills all rows. Values persist after reload.</div>
+      <textarea class="note-field" id="note-T41" placeholder="Notes / failure details…" oninput="saveNote('T41')"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SECTION 20: TAX, COMPLIANCE & EXPORTS          -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-title">20. Tax, Compliance &amp; Exports</div>
+    <div class="section-badge">Phase 4 &amp; 5</div>
+  </div>
+
+  <div id="T44" class="test-card">
+    <div class="test-header" onclick="toggleCard('T44')">
+      <span class="test-id">T44</span>
+      <span class="test-name">Franking Credits page — enter dividends and credits, grossed-up total auto-computes, data persists</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T44','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T44','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T44','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Data → Franking Credits.</li>
+        <li><span class="step-num">2</span>Select a FY card. Enter <strong>Cash Dividends</strong> = $700 and <strong>Franking Credits</strong> = $300.</li>
+        <li><span class="step-num">3</span>Confirm the Grossed-Up Total auto-computes to $1,000 (Cash Dividends + Franking Credits).</li>
+        <li><span class="step-num">4</span>Click <strong>Save</strong> for that FY.</li>
+        <li><span class="step-num">5</span>Reload the page — confirm both values are still present.</li>
+        <li><span class="step-num">6</span>Open <code>Data/franking_credits.json</code> and confirm the saved values appear under the correct FY key.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Grossed-Up Total = Cash Dividends + Franking Credits ($1,000). Values persist after page reload. <code>Data/franking_credits.json</code> contains the saved data keyed by FY (e.g. <code>"2025": {"cash_dividends": 700, "franking_credits": 300}</code>).</div>
+      <textarea class="note-field" id="note-T44" placeholder="Notes / failure details…" oninput="saveNote('T44')"></textarea>
+    </div>
+  </div>
+
+  <div id="T45" class="test-card">
+    <div class="test-header" onclick="toggleCard('T45')">
+      <span class="test-id">T45</span>
+      <span class="test-name">FY Summary tax sections — income tax estimate, HECS alert, and franking credits section appear</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T45','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T45','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T45','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <div class="prereq">Prerequisite: at least one FY of transaction data with income; franking credits saved in T44.</div>
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Data → FY Summary and select the FY used in T44.</li>
+        <li><span class="step-num">2</span>Scroll to the <strong>Income Tax Estimate</strong> section — confirm an estimated tax figure is shown alongside a bracket breakdown (e.g. 0%, 19%, 32.5%, 37%, 45%).</li>
+        <li><span class="step-num">3</span>Verify the figure is plausible against the Taxable Income in the KPI banner (apply ATO Stage 3 brackets mentally).</li>
+        <li><span class="step-num">4</span>If Taxable Income exceeds ~$54,435 (FY2025 HECS threshold), confirm a HECS Repayment alert or estimate row is visible.</li>
+        <li><span class="step-num">5</span>Scroll to the <strong>Franking Credits</strong> section — confirm the $700 cash dividends and $300 franking credits from T44 are displayed for the matching FY.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Income tax estimate section present with ATO bracket breakdown. HECS alert appears when income exceeds threshold. Franking Credits section shows the saved values from T44 ($700 cash, $300 credits, $1,000 grossed-up).</div>
+      <textarea class="note-field" id="note-T45" placeholder="Notes / failure details…" oninput="saveNote('T45')"></textarea>
+    </div>
+  </div>
+
+  <div id="T46" class="test-card">
+    <div class="test-header" onclick="toggleCard('T46')">
+      <span class="test-id">T46</span>
+      <span class="test-name">Tax Export ZIP — Download Tax Package returns a valid ZIP containing CSV files</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T46','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T46','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T46','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Data → FY Summary. Select a FY with at least one income transaction.</li>
+        <li><span class="step-num">2</span>Click the <strong>Download Tax Package</strong> button on the FY card.</li>
+        <li><span class="step-num">3</span>Confirm the browser downloads a <code>.zip</code> file (not a 404 or 500 error page).</li>
+        <li><span class="step-num">4</span>Extract the ZIP and inspect its contents — confirm it contains at least one CSV file with transaction data for the selected FY.</li>
+        <li><span class="step-num">5</span>Open a CSV — confirm readable columns (date, description, amount, category, etc.) and correct FY date range.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> ZIP downloads successfully and is a valid archive. Contents include at least one CSV with the correct FY's transactions. No server error is returned. CSV columns are human-readable.</div>
+      <textarea class="note-field" id="note-T46" placeholder="Notes / failure details…" oninput="saveNote('T46')"></textarea>
+    </div>
+  </div>
+
+  <div id="T47" class="test-card">
+    <div class="test-header" onclick="toggleCard('T47')">
+      <span class="test-id">T47</span>
+      <span class="test-name">Xero OFX export — "Xero (OFX)" button downloads a valid OFX file containing business transactions</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T47','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T47','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T47','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <div class="prereq">Prerequisite: at least one transaction flagged as Business (BIZ) in the target FY.</div>
+      <ol class="steps">
+        <li><span class="step-num">1</span>Flag at least one expense as BIZ via All Transactions → Flags (if not already done).</li>
+        <li><span class="step-num">2</span>Open Data → FY Summary. Find the FY card for the year containing that transaction.</li>
+        <li><span class="step-num">3</span>Click <strong>Xero (OFX)</strong> on the FY card.</li>
+        <li><span class="step-num">4</span>Confirm the browser downloads a <code>.ofx</code> file.</li>
+        <li><span class="step-num">5</span>Open the OFX file in a text editor — confirm the first line starts with <code>OFXHEADER:</code> and the body contains at least one <code>&lt;STMTTRN&gt;</code> block with a correct amount.</li>
+        <li><span class="step-num">6</span>Confirm the transaction date is in <code>YYYYMMDD</code> format inside <code>&lt;DTPOSTED&gt;</code>.</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> OFX file downloads without error. Content opens as plain text starting with <code>OFXHEADER:</code>. At least one <code>&lt;STMTTRN&gt;</code> block matching a BIZ-flagged transaction. Date format is <code>YYYYMMDD</code>.</div>
+      <textarea class="note-field" id="note-T47" placeholder="Notes / failure details…" oninput="saveNote('T47')"></textarea>
+    </div>
+  </div>
+
+  <div id="T48" class="test-card">
+    <div class="test-header" onclick="toggleCard('T48')">
+      <span class="test-id">T48</span>
+      <span class="test-name">MYOB QIF export — "MYOB (QIF)" button downloads a valid QIF file starting with !Type:Bank</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T48','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T48','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T48','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <div class="prereq">Prerequisite: at least one BIZ-flagged transaction (same as T47).</div>
+      <ol class="steps">
+        <li><span class="step-num">1</span>On the same FY card used in T47, click <strong>MYOB (QIF)</strong>.</li>
+        <li><span class="step-num">2</span>Confirm the browser downloads a <code>.qif</code> file.</li>
+        <li><span class="step-num">3</span>Open the QIF file in a text editor — confirm the very first line is <code>!Type:Bank</code>.</li>
+        <li><span class="step-num">4</span>Confirm each transaction block contains <code>D</code> (date), <code>T</code> (amount), <code>P</code> (payee), and <code>L</code> (account/category) fields, and terminates with <code>^</code>.</li>
+        <li><span class="step-num">5</span>Confirm the <code>L</code> field contains a non-empty account code (from the <code>business_export.account_codes</code> config mapping).</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> QIF file downloads without error. First line is <code>!Type:Bank</code>. Each transaction block has D, T, P, L fields ending with <code>^</code>. L field is non-empty, populated from the config account code mapping.</div>
+      <textarea class="note-field" id="note-T48" placeholder="Notes / failure details…" oninput="saveNote('T48')"></textarea>
+    </div>
+  </div>
+
+  <div id="T49" class="test-card">
+    <div class="test-header" onclick="toggleCard('T49')">
+      <span class="test-id">T49</span>
+      <span class="test-name">Help anchoring — clicking '?' from /franking-credits opens help at the Franking Credits section</span>
+      <div class="test-result">
+        <button class="result-btn pass-btn" onclick="setResult(event,'T49','pass')">Pass</button>
+        <button class="result-btn fail-btn" onclick="setResult(event,'T49','fail')">Fail</button>
+        <button class="result-btn skip-btn" onclick="setResult(event,'T49','skip')">Skip</button>
+      </div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="test-body">
+      <ol class="steps">
+        <li><span class="step-num">1</span>Open Data → Franking Credits (<code>/franking-credits</code>).</li>
+        <li><span class="step-num">2</span>Click the <strong>?</strong> help icon on the page (or the Help link in the nav bar).</li>
+        <li><span class="step-num">3</span>Confirm the Help page opens scrolled to the Franking Credits section (<code>#sec-franking-credits</code> anchor), not to the top of the help page.</li>
+        <li><span class="step-num">4</span>Confirm the Franking Credits section content is visible and explains: what franking credits are, how to enter cash dividends and credits per FY, and what the grossed-up total represents (ATO offset calculation).</li>
+      </ol>
+      <div class="expected"><strong>Expected:</strong> Help navigates directly to the Franking Credits section — not the help page root. Section content describes dividends, credits, grossed-up total, and the ATO offset context.</div>
+      <textarea class="note-field" id="note-T49" placeholder="Notes / failure details…" oninput="saveNote('T49')"></textarea>
+    </div>
+  </div>
+</div>
+
+<script>
+var STORAGE_KEY = 'pfa_test_results';
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch(e) { return {}; }
+}
+function save(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+function setResult(e, id, result) {
+  e.stopPropagation();
+  var data = load();
+  // Toggle off if already set
+  if (data[id] === result) {
+    delete data[id];
+  } else {
+    data[id] = result;
+  }
+  save(data);
+  applyAll(data);
+}
+
+function saveNote(id) {
+  var el = document.getElementById('note-' + id);
+  if (!el) return;
+  var data = load();
+  if (!data._notes) data._notes = {};
+  data._notes[id] = el.value;
+  save(data);
+}
+
+function toggleCard(id) {
+  var card = document.getElementById(id);
+  if (card) card.classList.toggle('open');
+}
+
+function applyAll(data) {
+  var allIds = Array.from(document.querySelectorAll('.test-card')).map(function(c){ return c.id; });
+  var pass = 0, fail = 0, skip = 0, done = 0;
+  allIds.forEach(function(id) {
+    var card = document.getElementById(id);
+    if (!card) return;
+    var result = data[id] || null;
+    card.className = 'test-card' + (card.classList.contains('open') ? ' open' : '') + (result ? ' ' + result : '');
+    // Update button active states
+    var btns = card.querySelectorAll('.result-btn');
+    btns.forEach(function(btn) {
+      btn.classList.remove('active');
+      if ((result === 'pass' && btn.classList.contains('pass-btn')) ||
+          (result === 'fail' && btn.classList.contains('fail-btn')) ||
+          (result === 'skip' && btn.classList.contains('skip-btn'))) {
+        btn.classList.add('active');
+      }
+    });
+    if (result === 'pass') { pass++; done++; }
+    else if (result === 'fail') { fail++; done++; }
+    else if (result === 'skip') { skip++; done++; }
+  });
+  var total = allIds.length;
+  document.getElementById('cnt-pass').textContent = pass;
+  document.getElementById('cnt-fail').textContent = fail;
+  document.getElementById('cnt-skip').textContent = skip;
+  document.getElementById('cnt-total').textContent = total;
+  var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  document.getElementById('pct-done').textContent = pct + '%';
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+function resetAll() {
+  if (!confirm('Reset all test results and notes?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  applyAll({});
+  document.querySelectorAll('.note-field').forEach(function(el){ el.value = ''; });
+}
+
+// Init on load
+(function() {
+  var data = load();
+  applyAll(data);
+  // Restore notes
+  if (data._notes) {
+    Object.keys(data._notes).forEach(function(id) {
+      var el = document.getElementById('note-' + id);
+      if (el) el.value = data._notes[id] || '';
+    });
+  }
+})();
+</script>
+
+</body>
+</html>

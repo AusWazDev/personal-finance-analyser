@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Superseded Providers — Personal Finance Analyser</title>
+  <style>
+    .header{margin-bottom:24px}
+    .header p{color:#94a3b8;margin-top:6px;font-size:.9rem;line-height:1.5}
+    .card h2{font-size:1rem;color:#e2e8f0;margin-bottom:16px;font-weight:600}
+    .merchant-name{font-family:monospace;color:#e2e8f0}
+    .arrow{color:#2A9D8F;font-weight:700;padding:0 6px}
+    .note{background:#1a2e3a;border-radius:8px;padding:12px 16px;font-size:.82rem;color:#94a3b8;margin-top:16px;line-height:1.5}
+    .added-date{color:#555;font-size:.78rem}
+    .field-group{display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px}
+    .field-group label{font-size:.75rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  </style>
+</head>
+<body>
+
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>Superseded Providers</h1>
+  <p>Record provider switches so the AI recommendations engine never flags sequential replacements as duplicate spending.<br>
+  Changes take effect on the next <strong>Re-categorise All</strong> or <strong>Start Import</strong> run.</p>
+</div>
+
+<div class="card">
+  <h2>Record a Provider Replacement</h2>
+  <div class="add-form">
+    <div class="field-group">
+      <label>Old provider (replaced)</label>
+      <input type="text" id="inp-replaced" placeholder="e.g. HCF" autocomplete="off">
+    </div>
+    <div class="field-group">
+      <label>New provider (replaced by)</label>
+      <input type="text" id="inp-by" placeholder="e.g. AUSTRALIAN UNITY" autocomplete="off">
+    </div>
+    <div class="field-group">
+      <label>Category (optional)</label>
+      <select id="inp-category">
+        <option value="">— any —</option>
+        {% for group_name, cats in cat_groups %}
+        <optgroup label="{{ group_name }}">
+          {% for c in cats %}
+          <option value="{{ c }}">{{ c }}</option>
+          {% endfor %}
+        </optgroup>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Note (optional)</label>
+      <input type="text" id="inp-note" placeholder="e.g. switched for lower premiums" autocomplete="off">
+    </div>
+    <button class="btn-add" onclick="addPair()" style="margin-top:20px">+ Add</button>
+  </div>
+  <div class="note">Enter the merchant names exactly as they appear in your transaction descriptions (uppercase).
+  The AI will never flag the old and new provider as concurrent duplicates, regardless of date overlap.</div>
+</div>
+
+<div class="card">
+  <h2>Confirmed Replacements</h2>
+  {% if pairs %}
+  <table id="pairs-table">
+    <thead>
+      <tr>
+        <th>Old Provider</th>
+        <th></th>
+        <th>New Provider</th>
+        <th>Category</th>
+        <th>Note</th>
+        <th>Added</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in pairs %}
+      <tr id="row-{{ p.id }}">
+        <td><span class="merchant-name">{{ p.replaced }}</span></td>
+        <td class="arrow">&#8594;</td>
+        <td><span class="merchant-name">{{ p.by }}</span></td>
+        <td>{{ p.category or '—' }}</td>
+        <td>{{ p.note or '—' }}</td>
+        <td class="added-date">{{ p.added }}</td>
+        <td><button class="btn-del" onclick="deletePair({{ p.id }})">Remove</button></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty" id="empty-msg">No superseded pairs recorded yet.</div>
+  {% endif %}
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+function toast(msg, ok) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = ok ? '#2A9D8F' : '#E63946';
+  el.classList.add('show');
+  setTimeout(function() { el.classList.remove('show'); }, 3000);
+}
+
+function addPair() {
+  var replaced = document.getElementById('inp-replaced').value.trim().toUpperCase();
+  var by       = document.getElementById('inp-by').value.trim().toUpperCase();
+  var category = document.getElementById('inp-category').value;
+  var note     = document.getElementById('inp-note').value.trim();
+  if (!replaced || !by) { toast('Both provider names are required.', false); return; }
+
+  fetch('/api/superseded-pairs', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({replaced: replaced, by: by, category: category, note: note}),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (!d.ok) { toast('Error: ' + (d.error || 'unknown'), false); return; }
+    toast('Pair saved.', true);
+    document.getElementById('inp-replaced').value = '';
+    document.getElementById('inp-by').value = '';
+    document.getElementById('inp-category').value = '';
+    document.getElementById('inp-note').value = '';
+    // Add row to table without reload
+    var tbody = document.querySelector('#pairs-table tbody');
+    var empty = document.getElementById('empty-msg');
+    if (empty) empty.style.display = 'none';
+    if (!tbody) {
+      location.reload(); return;
+    }
+    var today = new Date().toISOString().slice(0, 10);
+    var tr = document.createElement('tr');
+    tr.id = 'row-' + d.id;
+    tr.innerHTML =
+      '<td><span class="merchant-name">' + replaced + '</span></td>' +
+      '<td class="arrow">&#8594;</td>' +
+      '<td><span class="merchant-name">' + by + '</span></td>' +
+      '<td>' + (category || '—') + '</td>' +
+      '<td>' + (note || '—') + '</td>' +
+      '<td class="added-date">' + today + '</td>' +
+      '<td><button class="btn-del" onclick="deletePair(' + d.id + ')">Remove</button></td>';
+    tbody.appendChild(tr);
+  })
+  .catch(function(e) { toast('Network error: ' + e, false); });
+}
+
+function deletePair(id) {
+  fetch('/api/superseded-pairs/' + id, {method: 'DELETE'})
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (!d.ok) { toast('Error: ' + (d.error || 'unknown'), false); return; }
+    var row = document.getElementById('row-' + id);
+    if (row) row.remove();
+    toast('Pair removed.', true);
+  })
+  .catch(function(e) { toast('Network error: ' + e, false); });
+}
+</script>
+</body>
+</html>

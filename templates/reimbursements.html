@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Reimbursements — Personal Finance Analyser</title>
+  <style>
+    .header p{color:#94a3b8;margin-top:6px;font-size:.9rem;line-height:1.5}
+    .summary-card{background:#1d3540;border-radius:12px;padding:18px 24px;flex:1;min-width:150px}
+    .summary-card .val{font-size:1.4rem;font-weight:700;color:#e2e8f0}
+    .card-title{font-size:1rem;font-weight:700;color:#e2e8f0;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+    .card-title .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .empty{text-align:center;padding:32px;color:#64748b;font-size:.9rem}
+    .btn{padding:7px 18px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;border:none;white-space:nowrap}
+    .btn-primary{background:#2A9D8F;color:white}
+    .btn-primary:hover{background:#21867a}
+    .btn-primary:disabled{background:#2e4a5a;color:#64748b;cursor:not-allowed}
+    .btn-danger{background:transparent;color:#c95f43;border:1px solid #c95f43}
+    .btn-danger:hover{background:#c95f43;color:white}
+    .btn-outline{background:transparent;color:#2a9d8f;border:1px solid #2a9d8f}
+    .btn-outline:hover{background:#2a9d8f;color:white}
+    .badge{font-size:.72rem;padding:3px 10px;border-radius:10px;font-weight:700;letter-spacing:.03em}
+    .badge-pending{background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44}
+    .badge-reconciled{background:#2A9D8F22;color:#2A9D8F;border:1px solid #2A9D8F44}
+    .badge-shortfall{background:#c95f4322;color:#c95f43;border:1px solid #c95f4344}
+    .badge-overpaid{background:#4895EF22;color:#4895EF;border:1px solid #4895EF44}
+    .batch-card{background:#0f1923;border-radius:10px;padding:18px 20px;margin-bottom:14px;border:1px solid #2e4a5a}
+    .batch-hdr{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:0;cursor:pointer;user-select:none}
+    .batch-hdr .name{font-weight:700;font-size:.95rem;flex:1}
+    .batch-hdr .meta{font-size:.8rem;color:#64748b;white-space:nowrap}
+    .batch-hdr .amount{font-size:1rem;font-weight:700;color:#e2e8f0;white-space:nowrap}
+    .batch-detail{display:none;margin-top:14px;padding-top:14px;border-top:1px solid #2e4a5a}
+    .batch-detail.open{display:block}
+    .batch-payment{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;background:#1d3540;padding:12px 14px;border-radius:8px;font-size:.86rem}
+    .batch-payment .lbl{color:#94a3b8;white-space:nowrap}
+    .batch-payment select{padding:6px 10px;border-radius:7px;border:1px solid #2e4a5a;background:#0f1923;color:#e2e8f0;font-size:.85rem;flex:1;min-width:180px}
+    .batch-payment select:focus{outline:none;border-color:#2A9D8F}
+    .reconcile-row{display:flex;gap:16px;flex-wrap:wrap;font-size:.86rem;margin-bottom:10px}
+    .reconcile-row .item{display:flex;flex-direction:column;gap:2px}
+    .reconcile-row .item .lbl{font-size:.73rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em}
+    .reconcile-row .item .val{font-weight:700}
+    .shortfall-val{color:#c95f43}
+    .surplus-val{color:#4895EF}
+    .ok-val{color:#2A9D8F}
+    .check-cell{width:36px;text-align:center}
+    input[type=checkbox]{accent-color:#2A9D8F;width:15px;height:15px;cursor:pointer}
+    .submit-bar{display:none;margin-top:14px;padding-top:14px;border-top:1px solid #2e4a5a;align-items:center;gap:10px;flex-wrap:wrap}
+    .submit-bar.visible{display:flex}
+    .submit-bar input{flex:1;min-width:200px;padding:8px 13px;border-radius:8px;border:1px solid #2e4a5a;background:#0f1923;color:#e2e8f0;font-size:.9rem}
+    .submit-bar input:focus{outline:none;border-color:#2A9D8F}
+    .sel-count{font-size:.82rem;color:#94a3b8}
+    .toggle-arrow{color:#64748b;font-size:.8rem;transition:transform .2s;display:inline-block}
+    .toggle-arrow.open{transform:rotate(90deg)}
+    .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center}
+    .modal-bg.open{display:flex}
+    .modal{background:#1d3540;border-radius:14px;padding:26px;overflow-y:auto}
+    .sug-card{background:#0f1923;border-radius:10px;padding:14px 16px;margin-bottom:12px;border:1px solid #2e4a5a}
+    .sug-card.excluded{opacity:.45}
+    .sug-hdr{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+    .sug-hdr .sug-name{flex:1;min-width:160px}
+    .sug-name input{width:100%;background:#1d3540;border:1px solid #2e4a5a;border-radius:6px;padding:5px 10px;color:#e2e8f0;font-size:.87rem}
+    .sug-name input:focus{outline:none;border-color:#2A9D8F}
+    .sug-meta{font-size:.8rem;color:#64748b;display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px}
+    .sug-exps{font-size:.8rem}
+    .sug-exps table{font-size:.78rem}
+    .sug-exps th{padding:5px 10px;font-size:.72rem}
+    .sug-exps td{padding:5px 10px;border-bottom:1px solid #1a2e3a}
+    .badge-exact{background:#2A9D8F22;color:#2A9D8F;border:1px solid #2A9D8F44}
+    .badge-near{background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44}
+    .badge-partial{background:#c95f4322;color:#c95f43;border:1px solid #c95f4344}
+    .badge-unmatched{background:#44444422;color:#888;border:1px solid #44444444}
+  </style>
+</head>
+<body>
+
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>Business Expense Reimbursements</h1>
+  <p>Track which business expenses have been submitted to your employer, link incoming payments, and spot any shortfalls.</p>
+</div>
+
+<!-- Summary cards -->
+{% set pending_total = batches | selectattr('status', 'eq', 'submitted') | sum(attribute='expense_total') %}
+{% set shortfall_total = batches | selectattr('status', 'eq', 'shortfall') | map(attribute='shortfall') | select | sum %}
+{% set reconciled_count = batches | selectattr('status', 'eq', 'reconciled') | list | length %}
+<div class="summary-row">
+  <div class="summary-card">
+    <div class="lbl">Unsubmitted</div>
+    <div class="val">${{ "%.2f" | format(unsubmitted | sum(attribute='amount') | abs) }}</div>
+    <div class="sub">{{ unsubmitted | length }} expense{{ 's' if unsubmitted | length != 1 }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="lbl">Awaiting Payment</div>
+    <div class="val">${{ "%.2f" | format(pending_total) }}</div>
+    <div class="sub">{{ batches | selectattr('status', 'eq', 'submitted') | list | length }} batch{{ 'es' if (batches | selectattr('status', 'eq', 'submitted') | list | length) != 1 }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="lbl">Reconciled Batches</div>
+    <div class="val">{{ reconciled_count }}</div>
+    <div class="sub">fully matched</div>
+  </div>
+  <div class="summary-card">
+    <div class="lbl">Outstanding Shortfall</div>
+    <div class="val" style="color:{% if shortfall_total > 0 %}#c95f43{% else %}#2A9D8F{% endif %}">${{ "%.2f" | format(shortfall_total) }}</div>
+    <div class="sub">across all batches</div>
+  </div>
+</div>
+
+<!-- Suggest historical modal -->
+<div class="modal-bg" id="suggest-modal">
+  <div class="modal" style="width:min(700px,97vw);max-height:88vh">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <h2 style="margin:0">Suggested Historical Batches</h2>
+      <button onclick="closeSuggest()" style="background:none;border:none;color:#94a3b8;font-size:1.4rem;cursor:pointer;line-height:1">✕</button>
+    </div>
+    <div id="suggest-loading" style="text-align:center;padding:40px;color:#94a3b8">Analysing transactions…</div>
+    <div id="suggest-body" style="display:none">
+      <p style="color:#94a3b8;font-size:.83rem;margin-bottom:16px">
+        The algorithm groups your unsubmitted business expenses with matching reimbursement/income credits within a 90-day window.
+        Review each suggestion, edit the name if needed, then create the batches you want to keep.
+        Unmatched expenses are preserved for manual handling.
+      </p>
+      <div id="suggest-list"></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid #2e4a5a">
+        <span id="suggest-sel-count" style="font-size:.83rem;color:#94a3b8;align-self:center"></span>
+        <button class="btn btn-primary" onclick="acceptSuggestions()">Create Selected Batches</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Unsubmitted expenses -->
+<div class="card">
+  <div class="card-title">
+    Unsubmitted Business Expenses
+    <div class="actions">
+      <span class="sel-count" id="sel-count"></span>
+      {% if unsubmitted %}<button class="btn btn-outline" onclick="openSuggest()">&#10024; Suggest Historical Batches</button>{% endif %}
+      {% if has_historical %}<button class="btn btn-outline" style="border-color:#f59e0b;color:#f59e0b" onclick="resuggest()">&#8635; Re-suggest</button>{% endif %}
+    </div>
+  </div>
+  {% if unsubmitted %}
+  <table>
+    <thead>
+      <tr>
+        <th class="check-cell"><input type="checkbox" id="check-all" onclick="toggleAll(this)"></th>
+        <th>Date</th>
+        <th>Description</th>
+        <th>Category</th>
+        <th style="text-align:right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in unsubmitted %}
+      <tr>
+        <td class="check-cell"><input type="checkbox" class="exp-check" value="{{ e.txn_id }}" onchange="updateSelection()"></td>
+        <td style="white-space:nowrap;color:#94a3b8">{{ e.date[:10] }}</td>
+        <td>{{ e.description }}</td>
+        <td style="color:#64748b;font-size:.82rem">{{ e.category }}{% if e.sub_category %} / {{ e.sub_category }}{% endif %}</td>
+        <td style="text-align:right;color:#c95f43;font-weight:600">${{ "%.2f" | format(e.amount | abs) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div id="reimb-pagination" style="display:flex;align-items:center;gap:12px;padding:8px 14px;font-size:.88rem;color:#64748b"></div>
+  <div class="submit-bar" id="submit-bar">
+    <span class="sel-count" id="sel-count2"></span>
+    <input type="text" id="batch-name" placeholder="Batch name (e.g. BedLin May 2026 Claim)">
+    <button class="btn btn-primary" onclick="submitBatch()">Submit Batch</button>
+  </div>
+  {% else %}
+  <div class="empty">All business expenses have been submitted. ✓</div>
+  {% endif %}
+</div>
+
+<!-- Submitted batches -->
+<div class="card">
+  <div class="card-title">Submitted Batches</div>
+  {% if batches %}
+  {% for batch in batches %}
+  {% set sid = batch.id %}
+  <div class="batch-card">
+    <div class="batch-hdr" onclick="toggleBatch('{{ sid }}')">
+      <span class="toggle-arrow" id="arrow-{{ sid }}">&#9658;</span>
+      <span class="name">{{ batch.name }}</span>
+      <span class="meta">Submitted {{ batch.submitted_date }}</span>
+      <span class="amount">${{ "%.2f" | format(batch.expense_total) }}</span>
+      {% if batch.status == 'reconciled' %}
+        <span class="badge badge-reconciled">Reconciled</span>
+      {% elif batch.status == 'shortfall' %}
+        <span class="badge badge-shortfall">Shortfall ${{ "%.2f" | format(batch.shortfall) }}</span>
+      {% elif batch.status == 'overpaid' %}
+        <span class="badge badge-overpaid">Overpaid</span>
+      {% else %}
+        <span class="badge badge-pending">Pending</span>
+      {% endif %}
+      <button class="btn btn-danger" style="padding:4px 12px;font-size:.78rem" onclick="event.stopPropagation();deleteBatch('{{ sid }}','{{ batch.name | replace("'","\\'")}}')" title="Delete batch">✕</button>
+    </div>
+
+    <div class="batch-detail" id="detail-{{ sid }}">
+      <!-- Payment status -->
+      {% if batch.reimbursement_txn_id %}
+      <div class="reconcile-row" style="margin-bottom:12px">
+        <div class="item"><div class="lbl">Submitted</div><div class="val">${{ "%.2f" | format(batch.expense_total) }}</div></div>
+        <div class="item"><div class="lbl">Received</div><div class="val ok-val">${{ "%.2f" | format(batch.received_amount) }}</div></div>
+        <div class="item"><div class="lbl">Date Received</div><div class="val">{{ batch.received_date }}</div></div>
+        <div class="item">
+          <div class="lbl">Difference</div>
+          {% set diff = batch.received_amount - batch.expense_total %}
+          <div class="val {% if diff < -0.01 %}shortfall-val{% elif diff > 0.01 %}surplus-val{% else %}ok-val{% endif %}">
+            {% if diff | abs < 0.01 %}✓ Fully reconciled{% elif diff < 0 %}–${{ "%.2f" | format(diff | abs) }} shortfall{% else %}+${{ "%.2f" | format(diff) }} overpaid{% endif %}
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <!-- Link payment -->
+      <div class="batch-payment">
+        <span class="lbl">Link payment:</span>
+        <select id="reimb-sel-{{ sid }}">
+          <option value="">— Select a Business Reimbursement transaction —</option>
+          {% for r in available_reimb %}
+          <option value="{{ r.txn_id }}">{{ r.date[:10] }} · {{ r.description }} · ${{ "%.2f" | format(r.amount) }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-outline" onclick="linkPayment('{{ sid }}')">Link</button>
+      </div>
+      {% endif %}
+
+      <!-- Expense list -->
+      <table style="font-size:.84rem">
+        <thead>
+          <tr>
+            <th>Date</th><th>Description</th><th>Category</th><th style="text-align:right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in batch.expenses %}
+          <tr>
+            <td style="white-space:nowrap;color:#94a3b8">{{ e.date[:10] }}</td>
+            <td>{{ e.description }}</td>
+            <td style="color:#64748b;font-size:.78rem">{{ e.category }}</td>
+            <td style="text-align:right;color:#c95f43;font-weight:600">${{ "%.2f" | format(e.amount | abs) }}</td>
+          </tr>
+          {% endfor %}
+          <tr style="background:#1d3540">
+            <td colspan="3" style="text-align:right;font-weight:700;font-size:.85rem;color:#94a3b8">Total</td>
+            <td style="text-align:right;font-weight:700;color:#e2e8f0">${{ "%.2f" | format(batch.expense_total) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="empty">No batches yet — select expenses above and submit a claim.</div>
+  {% endif %}
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ── Pagination for unsubmitted expenses ──────────────────────────────────────
+var _REIMB_PAGE = 50;
+var _reimbPage  = 1;
+
+function _renderReimbPage() {
+  var allRows = Array.from(document.querySelectorAll('table tbody tr'));
+  if (!allRows.length) return;
+  var total = allRows.length;
+  var totalPages = Math.max(1, Math.ceil(total / _REIMB_PAGE));
+  _reimbPage = Math.min(_reimbPage, totalPages);
+  var start = (_reimbPage - 1) * _REIMB_PAGE;
+  allRows.forEach(function(tr, i) { tr.style.display = (i >= start && i < start + _REIMB_PAGE) ? '' : 'none'; });
+  var pag = document.getElementById('reimb-pagination');
+  if (!pag) return;
+  pag.innerHTML = totalPages > 1
+    ? '<button onclick="_goReimbPage(' + (_reimbPage-1) + ')" ' + (_reimbPage<=1?'disabled':'') +
+        ' style="padding:4px 12px;border:1px solid #2e4a5a;border-radius:6px;cursor:pointer;background:transparent;color:#64748b">&#8592; Prev</button>' +
+      '<span>Page ' + _reimbPage + ' of ' + totalPages + ' (' + total + ' expenses)</span>' +
+      '<button onclick="_goReimbPage(' + (_reimbPage+1) + ')" ' + (_reimbPage>=totalPages?'disabled':'') +
+        ' style="padding:4px 12px;border:1px solid #2e4a5a;border-radius:6px;cursor:pointer;background:transparent;color:#64748b">Next &#8594;</button>'
+    : '';
+}
+
+function _goReimbPage(p) { _reimbPage = p; _renderReimbPage(); }
+
+document.addEventListener('DOMContentLoaded', _renderReimbPage);
+
+function toast(msg, ok) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = ok === false ? '#c95f43' : '#2A9D8F';
+  el.classList.add('show');
+  setTimeout(function() { el.classList.remove('show'); }, 2800);
+}
+
+function toggleAll(cb) {
+  document.querySelectorAll('.exp-check').forEach(function(c) { c.checked = cb.checked; });
+  updateSelection();
+}
+
+function updateSelection() {
+  var checked = document.querySelectorAll('.exp-check:checked');
+  var n = checked.length;
+  var bar = document.getElementById('submit-bar');
+  var sc1 = document.getElementById('sel-count');
+  var sc2 = document.getElementById('sel-count2');
+  var total = 0;
+  checked.forEach(function(c) {
+    var row = c.closest('tr');
+    var amtCell = row.querySelector('td:last-child');
+    total += parseFloat(amtCell.textContent.replace(/[^0-9.]/g, '')) || 0;
+  });
+  var txt = n ? n + ' selected — $' + total.toFixed(2) : '';
+  if (sc1) sc1.textContent = txt;
+  if (sc2) sc2.textContent = n + ' expense' + (n !== 1 ? 's' : '') + ' · $' + total.toFixed(2);
+  if (bar) bar.classList.toggle('visible', n > 0);
+  var ca = document.getElementById('check-all');
+  var all = document.querySelectorAll('.exp-check');
+  if (ca && all.length) ca.indeterminate = (n > 0 && n < all.length);
+}
+
+function submitBatch() {
+  var ids = [];
+  document.querySelectorAll('.exp-check:checked').forEach(function(c) { ids.push(c.value); });
+  var name = (document.getElementById('batch-name').value || '').trim();
+  if (!ids.length) { toast('Select at least one expense', false); return; }
+  if (!name) { toast('Enter a batch name', false); return; }
+  fetch('/api/reimbursements', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: name, txn_ids: ids})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) { toast('Batch "' + name + '" submitted ($' + d.expense_total.toFixed(2) + ')'); setTimeout(function() { location.reload(); }, 1000); }
+    else toast(d.error || 'Error', false);
+  });
+}
+
+function toggleBatch(id) {
+  var detail = document.getElementById('detail-' + id);
+  var arrow = document.getElementById('arrow-' + id);
+  if (detail) detail.classList.toggle('open');
+  if (arrow) arrow.classList.toggle('open');
+}
+
+function linkPayment(batchId) {
+  var sel = document.getElementById('reimb-sel-' + batchId);
+  var txnId = sel ? sel.value : '';
+  if (!txnId) { toast('Select a payment transaction', false); return; }
+  fetch('/api/reimbursements/' + batchId, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({reimbursement_txn_id: txnId})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) { toast('Payment linked'); setTimeout(function() { location.reload(); }, 800); }
+    else toast(d.error || 'Error', false);
+  });
+}
+
+function deleteBatch(id, name) {
+  if (!confirm('Delete batch "' + name + '"?\nExpenses will return to the unsubmitted list.')) return;
+  fetch('/api/reimbursements/' + id, { method: 'DELETE' })
+    .then(function(r) { return r.json(); }).then(function(d) {
+      if (d.ok) { toast('Batch deleted'); setTimeout(function() { location.reload(); }, 800); }
+      else toast(d.error || 'Error', false);
+    });
+}
+
+// ── Historical suggestion modal ───────────────────────────────────────────────
+var _suggestions = [];
+
+function openSuggest() {
+  document.getElementById('suggest-modal').classList.add('open');
+  document.getElementById('suggest-loading').style.display = 'block';
+  document.getElementById('suggest-body').style.display = 'none';
+  fetch('/api/reimbursements/suggest-historical', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    document.getElementById('suggest-loading').style.display = 'none';
+    if (!d.ok) { document.getElementById('suggest-loading').textContent = d.error || 'Error'; document.getElementById('suggest-loading').style.display = 'block'; return; }
+    _suggestions = d.suggestions || [];
+    renderSuggestions();
+    document.getElementById('suggest-body').style.display = 'block';
+  }).catch(function(e) {
+    document.getElementById('suggest-loading').textContent = 'Failed to fetch suggestions.';
+  });
+}
+
+function closeSuggest() {
+  document.getElementById('suggest-modal').classList.remove('open');
+}
+
+function renderSuggestions() {
+  var list = document.getElementById('suggest-list');
+  if (!_suggestions.length) {
+    list.innerHTML = '<p style="color:#64748b;text-align:center;padding:20px">No suggestions — either there are no unsubmitted expenses, or no matching payment credits were found.</p>';
+    updateSuggestCount();
+    return;
+  }
+
+  var qualityLabel = {exact:'Exact Match', near:'Near Match', partial:'Partial Match', unmatched:'No Payment Found'};
+  var qualityClass = {exact:'badge-exact', near:'badge-near', partial:'badge-partial', unmatched:'badge-unmatched'};
+
+  list.innerHTML = _suggestions.map(function(s, i) {
+    var expRows = (s.expenses || []).map(function(e) {
+      return '<tr><td style="color:#94a3b8;white-space:nowrap">' + esc(String(e.date).slice(0,10)) + '</td>' +
+             '<td>' + esc(e.description) + '</td>' +
+             '<td style="text-align:right;color:#c95f43;white-weight:600">$' + Math.abs(parseFloat(e.amount)).toFixed(2) + '</td></tr>';
+    }).join('');
+
+    var diffHtml = '';
+    if (s.payment_amount !== null) {
+      var diff = s.difference;
+      var diffClass = Math.abs(diff) < 0.02 ? 'ok-val' : (diff < 0 ? 'shortfall-val' : 'surplus-val');
+      var diffTxt = Math.abs(diff) < 0.02 ? '✓ Exact' : (diff < 0 ? '–$' + Math.abs(diff).toFixed(2) + ' shortfall' : '+$' + diff.toFixed(2) + ' overpaid');
+      diffHtml = '<span style="margin-left:8px;font-size:.8rem" class="' + diffClass + '">' + diffTxt + '</span>';
+    }
+
+    var paymentHtml = s.payment_txn_id
+      ? '<span>Payment: <strong>' + esc(s.payment_date) + ' · ' + esc(s.payment_description) + ' · $' + parseFloat(s.payment_amount).toFixed(2) + '</strong>' + diffHtml + '</span>'
+      : '<span style="color:#64748b;font-style:italic">No matching payment found — batch will be created as Pending</span>';
+
+    return '<div class="sug-card" id="sug-card-' + i + '">' +
+      '<div class="sug-hdr">' +
+        '<input type="checkbox" checked onchange="toggleSug(' + i + ',this.checked)" style="accent-color:#2A9D8F;width:15px;height:15px;flex-shrink:0;cursor:pointer">' +
+        '<div class="sug-name"><input type="text" id="sug-name-' + i + '" value="' + esc(s.suggested_name) + '" oninput="updateSuggestCount()"></div>' +
+        '<span class="badge ' + qualityClass[s.match_quality] + '">' + qualityLabel[s.match_quality] + '</span>' +
+        '<span style="font-weight:700;color:#e2e8f0;white-space:nowrap">$' + s.expense_total.toFixed(2) + '</span>' +
+      '</div>' +
+      '<div class="sug-meta">' + paymentHtml + '</div>' +
+      '<details class="sug-exps"><summary style="cursor:pointer;color:#64748b;font-size:.8rem;margin-bottom:6px">' +
+        (s.expenses || []).length + ' expense' + ((s.expenses||[]).length!==1?'s':'') + '</summary>' +
+        '<table><thead><tr><th>Date</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead>' +
+        '<tbody>' + expRows + '</tbody></table>' +
+      '</details>' +
+    '</div>';
+  }).join('');
+
+  updateSuggestCount();
+}
+
+function toggleSug(i, checked) {
+  var card = document.getElementById('sug-card-' + i);
+  if (card) card.classList.toggle('excluded', !checked);
+  updateSuggestCount();
+}
+
+function updateSuggestCount() {
+  var checkboxes = document.querySelectorAll('#suggest-list input[type=checkbox]');
+  var checked = 0;
+  checkboxes.forEach(function(c) { if (c.checked) checked++; });
+  var el = document.getElementById('suggest-sel-count');
+  if (el) el.textContent = checked + ' of ' + checkboxes.length + ' selected';
+}
+
+function acceptSuggestions() {
+  var checkboxes = document.querySelectorAll('#suggest-list input[type=checkbox]');
+  var toCreate = [];
+  checkboxes.forEach(function(cb, i) {
+    if (!cb.checked) return;
+    var s = JSON.parse(JSON.stringify(_suggestions[i]));
+    var nameEl = document.getElementById('sug-name-' + i);
+    s.name = nameEl ? nameEl.value.trim() : s.suggested_name;
+    toCreate.push(s);
+  });
+  if (!toCreate.length) { toast('No suggestions selected', false); return; }
+
+  fetch('/api/reimbursements/accept-suggestions', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({suggestions: toCreate})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) {
+      closeSuggest();
+      toast('Created ' + d.created + ' batch' + (d.created !== 1 ? 'es' : ''));
+      setTimeout(function() { location.reload(); }, 900);
+    } else {
+      toast(d.error || 'Error creating batches', false);
+    }
+  });
+}
+
+function resuggest() {
+  var historical = document.querySelectorAll('[data-source="historical"]').length;
+  var msg = 'This will delete all auto-suggested historical batches and re-run the matching against your current transaction data.\n\nManually submitted batches will not be affected.\n\nContinue?';
+  if (!confirm(msg)) return;
+  fetch('/api/reimbursements/historical', { method: 'DELETE' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) { openSuggest(); }
+      else toast(d.error || 'Failed to reset historical batches', false);
+    });
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+</script>
+</body>
+</html>

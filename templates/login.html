@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Login — Personal Finance Analyser</title>
+  <style>
+    body{display:flex;align-items:center;justify-content:center}
+    .card{background:#1d3540;border-radius:16px;padding:40px 44px;width:min(380px,96vw);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+    h1{font-size:1.35rem;color:#2A9D8F;margin-bottom:6px}
+    .sub{font-size:.85rem;color:#64748b;margin-bottom:28px}
+    label{display:block;font-size:.78rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+    input[type=password]{width:100%;padding:11px 14px;border-radius:9px;border:1px solid #2e4a5a;background:#0f1923;color:#e2e8f0;font-size:.95rem;outline:none;transition:border-color .2s}
+    input[type=password]:focus{border-color:#2A9D8F}
+    .error{background:#c95f4322;border:1px solid #c95f43;color:#f87171;border-radius:8px;padding:10px 14px;font-size:.85rem;margin-bottom:18px}
+    button{width:100%;margin-top:20px;padding:12px;background:#2A9D8F;color:white;border:none;border-radius:9px;font-size:.95rem;font-weight:700;cursor:pointer;transition:background .2s}
+    button:hover{background:#21867a}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Personal Finance Analyser</h1>
+    <p class="sub">Enter your password to continue.</p>
+
+    {% if error %}
+    <div class="error">Incorrect password — please try again.</div>
+    {% endif %}
+
+    <form method="post" action="/login">
+      <label for="pw">Password</label>
+      <input type="password" id="pw" name="password" autofocus autocomplete="current-password">
+      <button type="submit">Sign in</button>
+    </form>
+  </div>
+</body>
+</html>

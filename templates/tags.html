@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Tags — Personal Finance Analyser</title>
+  <style>
+    .tag-chip{display:inline-block;padding:3px 10px;border-radius:10px;font-size:.78rem;font-weight:600;background:var(--accent-dim);color:var(--accent);border:1px solid rgba(42,157,143,.3);cursor:default}
+    .tag-chip-lg{font-size:.88rem;padding:5px 14px;border-radius:12px}
+    .tag-amt{font-size:1.2rem;font-weight:700;color:var(--text-1)}
+    .tag-meta{font-size:.82rem;color:var(--text-2);margin-top:3px}
+    .tag-row{display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid var(--border-2)}
+    .tag-row:last-child{border-bottom:none}
+    .tag-row .name{min-width:160px}
+    .tag-row .bar-wrap{flex:1;background:var(--border);border-radius:4px;height:6px;overflow:hidden}
+    .tag-row .bar{height:6px;border-radius:4px;background:var(--accent)}
+    .tag-row .spend{text-align:right;font-weight:700;color:var(--text-1);white-space:nowrap;min-width:80px}
+    .tag-row .cnt{text-align:right;color:var(--text-2);font-size:.82rem;white-space:nowrap;min-width:60px}
+  </style>
+</head>
+<body>
+
+{% set active_section = 'data' %}
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>Tags</h1>
+  <p>Cross-category labels for ad-hoc grouping. Apply tags to transactions on the <a href="/transactions" style="color:var(--accent)">Transactions</a> page.</p>
+</div>
+
+{% if items %}
+<div class="card">
+  <div class="card-title">Tag Summary</div>
+  {% set max_spend = items[0].spend if items else 1 %}
+  {% for item in items %}
+  <div class="tag-row">
+    <div class="name"><span class="tag-chip tag-chip-lg">{{ item.tag }}</span></div>
+    <div class="bar-wrap">
+      <div class="bar" style="width:{{ [(item.spend / max_spend * 100) if max_spend > 0 else 0, 100]|min }}%"></div>
+    </div>
+    <div class="spend">${{ "{:,.0f}".format(item.spend) }}</div>
+    <div class="cnt">{{ item.count }} txn{{ 's' if item.count != 1 }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="card-title">All Tags</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+    {% for item in items|sort(attribute='tag') %}
+    <a href="/transactions?tag={{ item.tag|urlencode }}" style="text-decoration:none">
+      <span class="tag-chip tag-chip-lg">{{ item.tag }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+{% else %}
+<div class="card">
+  <div class="empty">No tags yet. Open the <a href="/transactions" style="color:var(--accent)">Transactions</a> page and use the <strong>Tag</strong> button on any row to add your first tag.</div>
+</div>
+{% endif %}
+
+</body>
+</html>

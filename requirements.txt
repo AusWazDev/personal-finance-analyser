@@ -1,0 +1,9 @@
+pandas>=2.0
+beautifulsoup4>=4.12
+lxml>=4.9
+plotly>=5.18
+kaleido>=0.2.1
+anthropic>=0.40
+pyyaml>=6.0
+python-dateutil>=2.8
+pdfplumber>=0.10

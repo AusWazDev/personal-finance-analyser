@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App Wiring — Personal Finance Analyser</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1923; color: #e2e8f0; min-height: 100vh; padding: 32px 24px; }
+    h1 { font-size: 1.5rem; font-weight: 700; color: #2a9d8f; margin-bottom: 6px; }
+    .subtitle { font-size: .9rem; color: #64748b; margin-bottom: 32px; }
+    .diagram-wrap { background: #fff; border-radius: 14px; padding: 28px; margin-bottom: 32px; overflow-x: auto; }
+    .section-label { font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #4a7a8a; margin: 0 0 12px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 32px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: .82rem; color: #94a3b8; }
+    .legend-swatch { width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+<h1>Personal Finance Analyser — App Wiring</h1>
+<p class="subtitle">Architecture overview: how data flows from bank statements to reports and server pages.</p>
+
+<div class="section-label">Legend</div>
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch" style="background:#264653"></div> Entry points / orchestration</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#2a9d8f"></div> Processing modules (src/)</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#457b9d"></div> Data storage</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#e76f51"></div> External APIs</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#8338ec"></div> Output (reports / server pages)</div>
+</div>
+
+<div class="diagram-wrap">
+<pre class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#e8f4f8', 'primaryTextColor': '#1a1a2e', 'primaryBorderColor': '#2a9d8f', 'lineColor': '#457b9d', 'secondaryColor': '#f0f9f8', 'tertiaryColor': '#fff8f0', 'fontSize': '14px'}}}%%
+graph TD
+
+    subgraph RAW["📂 Raw Input"]
+        ANZ["ANZ PDF\n(transactions + balances)"]
+        PP["PayPal CSV"]
+        REV["Revolut CSV\n(FX via balance delta)"]
+        TDEG["28° HTML"]
+        WISE["Wise PDF"]
+        UPLOAD["⬆ Browser Upload\n/api/upload"]
+    end
+
+    subgraph PARSE["🔧 src/parsers.py"]
+        PARSERS["parse_anz_plus_pdf()\nparse_paypal_csv()\nparse_revolut_csv()\nparse_latitude_html()\nparse_wise_pdf()"]
+    end
+
+    subgraph ENRICH["🔧 src/enricher.py"]
+        ENRICHER["enrich_paypal_transactions()\nMatches ANZ PayPal rows to\nPayPal CSV by date ±3 days"]
+    end
+
+    subgraph BALANCE["🔧 src/balance_tracker.py"]
+        BAL["save_balance_history()\nExtracts snapshots from\nANZ Plus + Revolut"]
+    end
+
+    subgraph CAT["🔧 src/categoriser.py"]
+        RULES["1. config.yaml overrides"]
+        CACHE["2. categorisation_cache.json"]
+        AI_CAT["3. Claude Haiku 4.5\nAPI batch fallback"]
+    end
+
+    subgraph DB["🔧 src/db.py"]
+        UPSERT["upsert_transactions()\ninit_db() migrations"]
+    end
+
+    subgraph ARCH["🔧 src/archiver.py"]
+        ARCHIVER["update_master_csv()\nzip Raw Data to Archive/"]
+    end
+
+    subgraph DETECT["🔧 Detection"]
+        XFER["src/transfer_detector.py\nDetect inter-account pairs"]
+        COMMIT["src/commitment_detector.py\nDetect recurring patterns"]
+        P4DET["src/payin4_detector.py\nLink PayPal purchase →\n4 instalments → ANZ debits"]
+        ANOMALY["src/anomaly_detector.py\nIQR + floor-ratio threshold\nper-category; flags is_anomaly"]
+    end
+
+    subgraph TAXBIZ["🔧 Tax & Export Modules"]
+        TAXEST["src/tax_estimator.py\nestimate_income_tax()\nestimate_hecs_repayment()\ngross_up_dividend()"]
+        BIZEXP["src/biz_export.py\ngenerate_ofx()\ngenerate_qif()\ngenerate_csv()"]
+    end
+
+    subgraph REPORT["🔧 src/reporter.py — parallel"]
+        R1["generate_dashboard()\nprepare_dashboard_data()"]
+        R2["generate_fy_summary()\nprepare_fy_summary_data()"]
+        R3["generate_net_worth_report()\nprepare_net_worth_data()"]
+        R4["generate_transactions_page()\nprepare_transactions_data()"]
+        R5["generate_review_page()\nprepare_review_data()"]
+        R6["generate_transfers_page()\nprepare_transfers_data()\n(sequential — after parallel batch)"]
+    end
+
+    subgraph STORE["🗄 Data Storage"]
+        SQLITE["Data/finance.db\nSQLite (WAL mode)\ntables: transactions, accounts,\nstatement_periods, balance_history,\ncapital_gains, financial_goals,\nscanned_archives\ncols: is_anomaly, receipt_path, tags,\nparent_txn_id, is_split_parent"]
+        MRULES["Data/merchant_rules.json"]
+        CCACHE["Data/categorisation_cache.json"]
+        METRICS["Data/run_metrics.json"]
+        GOALS["Data/financial_goals.json"]
+        COMMITS["Data/commitments.json"]
+        XFERJ["Data/transfer_candidates.json"]
+        P4JSON["Data/payin4_groups.json"]
+        BALCSV["Data/account_balances.csv"]
+        CSUBCATS["Data/custom_subcats.json\n(user-added sub-categories)"]
+        FRANKJ["Data/franking_credits.json\n(per-FY cash dividends + credits)"]
+        BUDGJ["Data/budgets.json\n(limits + rollover + periods per category)"]
+        RECEIPTS["Data/Receipts/\n(receipt files keyed by txn_id)"]
+        USET["Data/user_settings.json\n(user_name; written by setup wizard)"]
+        CFG["config.yaml\n(accounts, categories, overrides)"]
+    end
+
+    subgraph HTML["📄 Generated Reports (static — CLI / Refresh Charts)"]
+        TXN["reports/transactions.html"]
+        STATICOTHERS["reports/monthly_summary.html\nreports/fy_summary.html\nreports/net_worth.html\nreports/review.html\nreports/transfers.html\n(still generated; nav now links to live routes)"]
+    end
+
+    subgraph SERVER["🌐 server.py — Flask :5100"]
+        direction TB
+        LIVE["Live Pages (Jinja2 templates)\n/transactions  /dashboard  /fy-summary  /net-worth\n/review  /transfers\n/commitments  /subscriptions\n/merchant-rules  /reimbursements\n/capital-gains  /cash-flow\n/financial-goals  /loans\n/recommendations  /coverage\n/superseded-pairs  /help  /tags\n/franking-credits  /merchants  /portfolio\n/year-comparison  /reconciliation\n/debt-payoff  /setup"]
+        SETTINGS["Settings Pages\n/settings/accounts\n/settings/merchant-rules\n/settings/budgets"]
+        API["REST API\n/api/budget-status\n/api/run-metrics\n/api/financial-goals\n/api/upload\n/api/accounts\n/api/subcats  /api/subcats/add\n/api/transactions/:id\n/api/txn/:id/split\n/api/txn/:id/tags\n/api/txn/:id/receipt (GET/POST/DELETE)\n/api/anomaly/run  /api/anomaly/summary\n/api/budgets/periods (GET/POST)\n/api/search/natural\n/api/setup/test-api-key\n/api/update-check\n/api/franking-credits (POST)\n/api/tax-export/&lt;fy&gt; (GET)\n/api/business-export/&lt;fy&gt; (GET)"]
+        SSE["SSE Streaming (diagnostics)\n/api/start-import\n/api/refresh-reports\n/api/recategorise"]
+        AUTH["Optional Auth\n@before_request\nPBKDF2-SHA256"]
+    end
+
+    subgraph EXT["☁ External"]
+        ANTHROPIC["Anthropic API\nHaiku 4.5 — categorise\nSonnet 4.6 — recommendations"]
+    end
+
+    subgraph BROWSER["🖥 Browser"]
+        USER["User"]
+    end
+
+    ANZ & PP & REV & TDEG & WISE --> PARSERS
+    UPLOAD --> |"files land in Raw Data/"| PARSERS
+
+    PARSERS --> ENRICHER
+    PARSERS --> BAL
+    BAL --> BALCSV
+
+    ENRICHER --> CAT
+    ENRICHER --> METRICS
+
+    RULES --> MRULES
+    AI_CAT --> CACHE
+    CACHE --> CCACHE
+    AI_CAT --> ANTHROPIC
+    AI_CAT --> METRICS
+
+    ENRICHER --> UPSERT
+    CAT --> UPSERT
+    UPSERT --> SQLITE
+
+    UPSERT --> ARCHIVER
+
+    SQLITE --> DETECT
+    XFER --> XFERJ
+    COMMIT --> COMMITS
+    P4DET --> P4JSON
+
+    SQLITE --> REPORT
+    BALCSV --> R3
+    XFERJ --> R6
+    P4JSON --> R4
+
+    R1 & R2 & R3 & R5 & R6 --> STATICOTHERS
+    R4 --> TXN
+
+    SQLITE --> |"prepare_* functions"| LIVE
+
+    CFG --> SERVER
+    SQLITE --> SERVER
+    GOALS --> SERVER
+    COMMITS --> SERVER
+    METRICS --> SERVER
+    MRULES --> SERVER
+    CSUBCATS --> SERVER
+
+    SSE --> |"spawns subprocess"| PARSERS
+    ANTHROPIC --> SERVER
+
+    TXN & STATICOTHERS --> BROWSER
+    LIVE --> BROWSER
+    SETTINGS --> BROWSER
+    API --> BROWSER
+    USER --> SERVER
+
+    R2 --> TAXEST
+    SQLITE --> BIZEXP
+    BIZEXP --> |"OFX/QIF/CSV"| BROWSER
+    FRANKJ --> SERVER
+</pre>
+</div>
+
+<div class="section-label">Key Data Flows</div>
+<div style="background:#1d3540;border-radius:12px;padding:20px 24px;margin-bottom:24px;border:1px solid #2e4a5a">
+  <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+    <thead>
+      <tr style="border-bottom:1px solid #2e4a5a">
+        <th style="text-align:left;padding:8px 12px;color:#2a9d8f;font-weight:700;width:25%">Flow</th>
+        <th style="text-align:left;padding:8px 12px;color:#2a9d8f;font-weight:700">Path</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid #1a2c38">
+        <td style="padding:8px 12px;color:#e2e8f0;font-weight:600">Upload &amp; Import (auto-pipeline)</td>
+        <td style="padding:8px 12px;color:#94a3b8">Browser → POST /api/upload → Raw Data/ → _run_pipeline_bg() spawns subprocess → parsers → enricher → categoriser (rules → cache → Haiku) → finance.db → reporter (parallel) → HTML reports. Pipeline log → Data/pipeline.log</td>
+      </tr>
+      <tr style="border-bottom:1px solid #1a2c38">
+        <td style="padding:8px 12px;color:#e2e8f0;font-weight:600">Recommendations</td>
+        <td style="padding:8px 12px;color:#94a3b8">finance.db → server → Anthropic Sonnet 4.6 API → HTML response → browser</td>
+      </tr>
+      <tr style="border-bottom:1px solid #1a2c38">
+        <td style="padding:8px 12px;color:#e2e8f0;font-weight:600">Category / Sub-category Edit</td>
+        <td style="padding:8px 12px;color:#94a3b8">Browser → PATCH /api/transactions/&lt;id&gt; → finance.db (saves instantly). Sub-categories served from GET /api/subcats (merges src/utils.py SUBCATS + Data/custom_subcats.json). New sub-categories added via POST /api/subcats/add → Data/custom_subcats.json.</td>
+      </tr>
+      <tr style="border-bottom:1px solid #1a2c38">
+        <td style="padding:8px 12px;color:#e2e8f0;font-weight:600">Pay-in-4 Detection</td>
+        <td style="padding:8px 12px;color:#94a3b8">finance.db → payin4_detector.py (purchase-first: find 4 instalments at 14-day intervals, verify sum, link to ANZ debits) → Data/payin4_groups.json → reporter.py embeds in transactions.html as expandable panel per purchase row</td>
+      </tr>
+      <tr style="border-bottom:1px solid #1a2c38">
+        <td style="padding:8px 12px;color:#e2e8f0;font-weight:600">Account Management</td>
+        <td style="padding:8px 12px;color:#94a3b8">Browser → GET/PUT/POST /api/accounts → finance.db accounts table. Seeded automatically from distinct transaction account names on server start.</td>
+      </tr>
+      <tr style="border-bottom:1px solid #1a2c38">
+        <td style="padding:8px 12px;color:#e2e8f0;font-weight:600">Live Page Render (Dashboard, FY Summary, Net Worth, Review, Transfers)</td>
+        <td style="padding:8px 12px;color:#94a3b8">Browser → GET /dashboard (etc.) → Flask route calls <code>prepare_*_data()</code> from reporter.py → loads from finance.db + JSON files → render_template() → Jinja2 template (templates/*.html) → browser. Always shows current data. Static counterparts in reports/ still generated by reporter.py for CLI / Refresh Charts workflow.</td>
+      </tr>
+      <tr style="border-bottom:1px solid #1a2c38">
+        <td style="padding:8px 12px;color:#e2e8f0;font-weight:600">Tax Export (ZIP)</td>
+        <td style="padding:8px 12px;color:#94a3b8">Browser → GET /api/tax-export/&lt;fy&gt; → server assembles ZIP from finance.db (income, expenses, business rows, CGT data) + Data/franking_credits.json → returns .zip download to browser</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;color:#e2e8f0;font-weight:600">Xero / MYOB Export</td>
+        <td style="padding:8px 12px;color:#94a3b8">Browser → GET /api/business-export/&lt;fy&gt;?format=ofx|qif|csv → server → biz_export.py (reads is_business / is_gst_claimable rows from finance.db; category → account code from config.yaml) → returns OFX (Xero), QIF (MYOB/Quicken), or CSV file to browser</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'default', flowchart: { curve: 'basis', padding: 20 } });
+</script>
+</body>
+</html>

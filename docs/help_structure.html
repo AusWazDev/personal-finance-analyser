@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Help Structure — Personal Finance Analyser</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1923; color: #e2e8f0; min-height: 100vh; padding: 32px 24px; }
+    h1 { font-size: 1.5rem; font-weight: 700; color: #2a9d8f; margin-bottom: 6px; }
+    .subtitle { font-size: .9rem; color: #64748b; margin-bottom: 32px; }
+    .diagram-wrap { background: #fff; border-radius: 14px; padding: 28px; margin-bottom: 32px; overflow-x: auto; }
+    .section-label { font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #4a7a8a; margin: 0 0 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; background: #1d3540; border-radius: 12px; overflow: hidden; border: 1px solid #2e4a5a; margin-bottom: 32px; }
+    th { background: #264653; padding: 10px 14px; text-align: left; color: #2a9d8f; font-weight: 700; font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; }
+    td { padding: 9px 14px; border-bottom: 1px solid #1a2c38; color: #94a3b8; vertical-align: top; }
+    td:first-child { color: #e2e8f0; font-weight: 600; white-space: nowrap; }
+    tr:last-child td { border-bottom: none; }
+    code { background: #0f1923; border: 1px solid #2e4a5a; border-radius: 3px; padding: 1px 5px; font-size: .8rem; font-family: monospace; color: #2a9d8f; }
+    a { color: #2a9d8f; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<h1>Personal Finance Analyser — Help &amp; Nav Structure</h1>
+<p class="subtitle">How the top-level navigation, sub-tabs, and help sections map to each other.</p>
+
+<div class="diagram-wrap">
+<pre class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#e8f4f8', 'primaryTextColor': '#1a1a2e', 'primaryBorderColor': '#2a9d8f', 'lineColor': '#457b9d', 'secondaryColor': '#dff0ee', 'tertiaryColor': '#f0f5ff', 'fontSize': '13px'}}}%%
+graph TD
+
+    NAV["🌐 Top Navigation Bar\n/dashboard"]
+
+    NAV --> DASH_LNK["Dashboard\n(nav-link → /dashboard)"]
+    NAV --> REPORTS_LNK["Reports\n(nav-link → /dashboard#reports)"]
+    NAV --> DATA_LNK["Data\n(nav-link → /reports/transactions.html)"]
+    NAV --> SETTINGS_LNK["Settings\n(nav-link → /settings/accounts)"]
+    NAV --> HELP_LNK["Help\n(nav-link → /help)"]
+
+    DASH_LNK --> DASH["📊 Dashboard\n/dashboard\ntemplates/dashboard.html (live)"]
+
+    REPORTS_LNK --> RPTS["📈 Reports Section\n(#reports anchor on /dashboard\n— 8 chart tabs)"]
+
+    DATA_LNK --> TABBAR["Data Sub-tab Bar\n(rendered by _nav.html\non every Data page)"]
+
+    TABBAR --> TXN["All Transactions\n/transactions"]
+    TABBAR --> REVIEW["Review\n/review"]
+    TABBAR --> XFER["Transfers\n/transfers"]
+    TABBAR --> FYSUM["FY Summary\n/fy-summary"]
+    TABBAR --> NW["Net Worth\n/net-worth"]
+    TABBAR --> MERCH["Merchants\n/merchants"]
+    TABBAR --> TAGS["Tags\n/tags"]
+    TABBAR --> YOY["Year on Year\n/year-comparison"]
+    TABBAR --> RECON["Reconciliation\n/reconciliation"]
+    TABBAR --> COMMIT["Commitments\n/commitments"]
+    TABBAR --> SUBS["Subscriptions\n/subscriptions"]
+    TABBAR --> REIMB["Reimbursements\n/reimbursements"]
+    TABBAR --> SUP["Superseded\n/superseded-pairs"]
+    TABBAR --> REC["Recommendations\n/recommendations"]
+    TABBAR --> COV["Coverage\n/coverage"]
+    TABBAR --> CG["Capital Gains\n/capital-gains"]
+    TABBAR --> FRANK["Franking Credits\n/franking-credits"]
+    TABBAR --> PORT["Portfolio\n/portfolio"]
+    TABBAR --> CF["Cash Flow\n/cash-flow"]
+    TABBAR --> GOALS["Goals & Loans\n/financial-goals"]
+    TABBAR --> DEBT["Debt Payoff\n/debt-payoff"]
+
+    SETTINGS_LNK --> SETTABBAR["Settings Sub-tab Bar\n(rendered by _nav.html\non every Settings page)"]
+    SETTABBAR --> ACCTS["Accounts\n/settings/accounts"]
+    SETTABBAR --> MRULES["Merchant Rules\n/settings/merchant-rules"]
+
+    HELP_LNK --> HELP["❓ Help Page\n/help\n(templates/help.html)\nactive_tab = 'help'\n— no sub-tab bar"]
+
+    HELP --> HTABS["Help Section Tabs\n(client-side, JS only)"]
+
+    HTABS --> H_DASH["Dashboard Tab\n— Toolbar Buttons\n— Filters & Controls\n— Summary\n— Charts\n— Tables\n— AI"]
+
+    HTABS --> H_REPORTS["Reports Tab\n— Filters\n— Income vs Expenditure\n— Spend by Category\n— Budget vs Actual\n— Spend Trends\n— Recurring Transactions\n— Top Merchants\n— Day of Week\n— Business Expenses"]
+
+    HTABS --> H_DATA["Data Tab\n— Transaction History\n— Transfers & Internal Flows\n— Reporting\n— Configuration\n— Planning\n— AI"]
+
+    HTABS --> H_ERR["Errors & Actions Tab\n— Actionable error table\n(10 common errors)"]
+
+    H_DATA --> H_TXN_HIST["Transaction History\n• All Transactions\n• Review"]
+    H_DATA --> H_XFER_GRP["Transfers & Internal Flows\n• Transfers"]
+    H_DATA --> H_REPORT_GRP["Reporting\n• FY Summary\n• Net Worth"]
+    H_DATA --> H_CONFIG_GRP["Configuration\n• Commitments\n• Reimbursements\n• Superseded\n• Coverage\n• Merchant Rules (Settings)\n• Accounts (Settings)"]
+    H_DATA --> H_INVEST_GRP["Investments & Tax\n• Capital Gains\n• Franking Credits\n• Portfolio"]
+    H_DATA --> H_PLAN_GRP["Planning\n• Cash Flow\n• Financial Goals"]
+    H_DATA --> H_AI_GRP["AI\n• Recommendations"]
+</pre>
+</div>
+
+<div class="section-label">Nav → Help Cross-Reference</div>
+<table>
+  <thead>
+    <tr>
+      <th>Page / Route</th>
+      <th>Nav Path</th>
+      <th>Help Tab → Section</th>
+      <th>Template</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Dashboard</td>
+      <td>Dashboard (top nav)</td>
+      <td>Dashboard tab — all sections</td>
+      <td><code>templates/dashboard.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Reports charts</td>
+      <td>Reports (top nav → /dashboard#reports)</td>
+      <td>Reports tab — all sections</td>
+      <td>Embedded in templates/dashboard.html (live)</td>
+    </tr>
+    <tr>
+      <td>All Transactions</td>
+      <td>Data → All Transactions tab</td>
+      <td>Data → Transaction History → All Transactions</td>
+      <td><code>templates/transactions.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Review</td>
+      <td>Data → Review tab</td>
+      <td>Data → Transaction History → Review</td>
+      <td><code>templates/review.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Transfers</td>
+      <td>Data → Transfers tab</td>
+      <td>Data → Transfers & Internal Flows → Transfers</td>
+      <td><code>templates/transfers.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>FY Summary</td>
+      <td>Data → FY Summary tab</td>
+      <td>Data → Reporting → FY Summary<br><small style="color:#64748b">Phase 4 additions: income tax estimate (tax_estimator.py), HECS alert, franking credits section, Xero (OFX) + MYOB (QIF) export buttons — all in <code>sec-fy-summary</code></small></td>
+      <td><code>templates/fy_summary.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Net Worth</td>
+      <td>Data → Net Worth tab</td>
+      <td>Data → Reporting → Net Worth</td>
+      <td><code>templates/net_worth.html</code> (live) — includes 10-yr projection Plotly chart (3 scenarios)</td>
+    </tr>
+    <tr>
+      <td>Merchants</td>
+      <td>Data → Merchants tab</td>
+      <td>Data → Reporting → Merchants</td>
+      <td><code>templates/merchants.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Tags</td>
+      <td>Data → Tags tab</td>
+      <td>Data → Configuration → Tags</td>
+      <td><code>templates/tags.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Year on Year</td>
+      <td>Data → Year on Year tab</td>
+      <td>Data → Reporting → Year on Year</td>
+      <td><code>templates/year_comparison.html</code> (live) — month and FY views; category trend picker</td>
+    </tr>
+    <tr>
+      <td>Reconciliation</td>
+      <td>Data → Reconciliation tab</td>
+      <td>Data → Configuration → Reconciliation</td>
+      <td><code>templates/reconciliation.html</code> (live) — compares DB running total vs balance snapshots per account</td>
+    </tr>
+    <tr>
+      <td>Commitments</td>
+      <td>Data → Commitments tab</td>
+      <td>Data → Configuration → Commitments</td>
+      <td><code>templates/commitments.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Subscriptions</td>
+      <td>Data → Subscriptions tab</td>
+      <td>Data → Configuration → Commitments (subscription view)</td>
+      <td><code>templates/subscriptions.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Merchant Rules</td>
+      <td>Settings → Merchant Rules tab<br><small style="color:#64748b">also reachable via /merchant-rules (legacy redirect)</small></td>
+      <td>Data → Configuration → Merchant Rules</td>
+      <td><code>templates/merchant_rules.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Accounts</td>
+      <td>Settings → Accounts tab</td>
+      <td>Data → Configuration → Accounts</td>
+      <td><code>templates/settings/accounts.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Reimbursements</td>
+      <td>Data → Reimbursements tab</td>
+      <td>Data → Configuration → Reimbursements</td>
+      <td><code>templates/reimbursements.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Superseded</td>
+      <td>Data → Superseded tab</td>
+      <td>Data → Configuration → Superseded</td>
+      <td>Inline in server.py (live)</td>
+    </tr>
+    <tr>
+      <td>Coverage</td>
+      <td>Data → Coverage tab</td>
+      <td>Data → Configuration → Coverage</td>
+      <td><code>templates/coverage.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Capital Gains</td>
+      <td>Data → Capital Gains tab</td>
+      <td>Data → Investments &amp; Tax → Capital Gains</td>
+      <td>Inline in server.py (live)</td>
+    </tr>
+    <tr>
+      <td>Franking Credits</td>
+      <td>Data → Franking Credits tab</td>
+      <td>Data → Investments &amp; Tax → Franking Credits (<code>sec-franking-credits</code>)</td>
+      <td><code>templates/franking_credits.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Portfolio</td>
+      <td>Data → Portfolio tab</td>
+      <td>Data → Investments &amp; Tax → Portfolio</td>
+      <td><code>templates/portfolio.html</code> (live) — purchase lots; cost basis; unrealised P&amp;L; CAGR column</td>
+    </tr>
+    <tr>
+      <td>Cash Flow</td>
+      <td>Data → Cash Flow tab</td>
+      <td>Data → Planning → Cash Flow</td>
+      <td><code>templates/cash_flow.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Financial Goals</td>
+      <td>Data → Goals tab</td>
+      <td>Data → Planning → Financial Goals</td>
+      <td><code>templates/financial_goals.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Debt Payoff</td>
+      <td>Data → Debt Payoff tab</td>
+      <td>Data → Planning → Debt Payoff</td>
+      <td><code>templates/debt_payoff.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Recommendations</td>
+      <td>Data → Recommendations tab</td>
+      <td>Data → AI → Recommendations</td>
+      <td><code>templates/recommendations.html</code> (live)</td>
+    </tr>
+    <tr>
+      <td>Help</td>
+      <td>Help (top nav)</td>
+      <td><em>Is the help page — no sub-tab bar shown</em></td>
+      <td><code>templates/help.html</code> (live)</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="section-label">Template Types</div>
+<table>
+  <thead>
+    <tr><th>Type</th><th>Description</th><th>Examples</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Generated (static HTML)</td>
+      <td>Written to disk by <code>reporter.py</code> during import or Refresh Charts. Served as static files. No live data — must re-run reporter to update. Nav links no longer point here for converted pages.</td>
+      <td>monthly_summary.html, fy_summary.html, review.html, transfers.html, net_worth.html, transactions.html (all still generated as backup/CLI output; nav links point to live routes)</td>
+    </tr>
+    <tr>
+      <td>Live (server-rendered)</td>
+      <td>Served by <code>server.py</code> Flask routes via Jinja2 templates. Data is read from the DB and JSON files on each request. Always current. Uses <code>{% include 'partials/_nav.html' %}</code> so help drawer, badges, and upload modal propagate automatically.</td>
+      <td>transactions, dashboard, fy-summary, net-worth, review, transfers, subscriptions, commitments, merchant-rules, reimbursements, coverage, cash-flow, financial-goals, loans, recommendations, capital-gains, franking-credits, tags, help</td>
+    </tr>
+    <tr>
+      <td>Partials</td>
+      <td>Jinja2 includes shared across all pages. Rendered server-side before serving.</td>
+      <td><code>templates/partials/_nav.html</code> — nav bar, tab bar, import modal, upload modal, badge JS</td>
+    </tr>
+  </tbody>
+</table>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'default', flowchart: { curve: 'basis', padding: 16 } });
+</script>
+</body>
+</html>

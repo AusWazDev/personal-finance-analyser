@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/static/base.css">
+  <title>Debt Payoff Calculator — Personal Finance Analyser</title>
+  <style>
+    .method-row{display:flex;gap:8px;margin-bottom:20px;align-items:center;flex-wrap:wrap}
+    .method-lbl{font-size:.8rem;color:#94a3b8;font-weight:600;margin-right:2px}
+    .m-btn{padding:7px 18px;border-radius:8px;border:1px solid #2e4a5a;background:transparent;color:#94a3b8;font-size:.83rem;font-weight:600;cursor:pointer;transition:all .15s}
+    .m-btn.active{background:#2A9D8F;color:white;border-color:#2A9D8F}
+    .m-btn:hover:not(.active){border-color:#2A9D8F;color:#2A9D8F}
+    .budget-row{display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
+    .budget-lbl{font-size:.82rem;color:#94a3b8;font-weight:600;white-space:nowrap}
+    .budget-input{background:#1d3540;border:1px solid #2e4a5a;color:#e2e8f0;border-radius:8px;padding:8px 14px;font-size:.9rem;width:130px}
+    .budget-input:focus{outline:none;border-color:#2a9d8f}
+    .budget-slider{accent-color:#2a9d8f;width:200px;cursor:pointer}
+    .budget-hint{font-size:.75rem;color:#64748b}
+    .stats-row{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap}
+    .stat-card{background:#1d3540;border-radius:10px;padding:16px 22px;flex:1;min-width:140px}
+    .stat-card .lbl{font-size:.7rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+    .stat-card .val{font-size:1.25rem;font-weight:700;color:#e2e8f0}
+    .stat-card .sub{font-size:.75rem;color:#64748b;margin-top:3px}
+    .payoff-table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:4px}
+    .payoff-table th{text-align:left;padding:8px 10px;font-size:.72rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #2e4a5a;white-space:nowrap}
+    .payoff-table th.r,.payoff-table td.r{text-align:right}
+    .payoff-table td{padding:10px 10px;border-bottom:1px solid #1a2e3a;vertical-align:middle}
+    .payoff-table tr:hover td{background:#1d3540}
+    .loan-name{font-weight:600;color:#e2e8f0}
+    .rate-cell{display:flex;align-items:center;gap:6px}
+    .rate-inp{background:#0f1923;border:1px solid #2e4a5a;color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:.8rem;width:60px;text-align:right}
+    .rate-inp:focus{outline:none;border-color:#2a9d8f}
+    .save-rate-btn{background:none;border:1px solid #2e4a5a;color:#94a3b8;border-radius:6px;padding:3px 8px;font-size:.72rem;cursor:pointer}
+    .save-rate-btn:hover{border-color:#2a9d8f;color:#2a9d8f}
+    .payoff-date{color:#2a9d8f;font-weight:600}
+    .payoff-never{color:#f87171;font-weight:600}
+    .progress-bar{background:#2e4a5a;border-radius:4px;height:7px;overflow:hidden;margin-top:4px}
+    .progress-fill{height:100%;background:#2a9d8f;border-radius:4px}
+    .chart-wrap{min-height:260px;margin-top:8px}
+    .no-loans{padding:32px;text-align:center;color:#4a6070}
+    .no-loans a{color:#2a9d8f}
+    .method-desc{font-size:.78rem;color:#64748b;margin-bottom:16px;padding:10px 14px;background:#1a2e3a;border-radius:8px;line-height:1.5}
+  </style>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+
+{% set active_tab = 'debt_payoff' %}
+{% include 'partials/_nav.html' %}
+
+<div class="header">
+  <h1>Debt Payoff Calculator</h1>
+  <p>Compare snowball and avalanche strategies for paying off your active loans.</p>
+</div>
+
+{% if loan_count == 0 %}
+<div class="card">
+  <div class="no-loans">
+    No active borrowed loans found.<br>
+    Add loan records on the <a href="/financial-goals">Goals &amp; Loans</a> page.
+  </div>
+</div>
+{% else %}
+
+<!-- Method + budget controls -->
+<div class="card">
+  <div class="method-row">
+    <span class="method-lbl">Strategy:</span>
+    <button class="m-btn active" id="m-snowball"  onclick="setMethod('snowball')">&#10052; Snowball</button>
+    <button class="m-btn"        id="m-avalanche" onclick="setMethod('avalanche')">&#9968; Avalanche</button>
+  </div>
+  <div id="method-desc" class="method-desc"></div>
+  <div class="budget-row">
+    <span class="budget-lbl">Monthly payment budget:</span>
+    <input type="number" class="budget-input" id="budget-input" min="0" step="10" value="0"
+           oninput="onBudgetInput(this.value)" />
+    <input type="range" class="budget-slider" id="budget-slider" min="0" step="10" value="0"
+           oninput="onBudgetSlider(this.value)" />
+    <span class="budget-hint" id="budget-hint"></span>
+  </div>
+</div>
+
+<!-- Summary cards -->
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="lbl">Total Outstanding</div>
+    <div class="val">${{ "{:,.0f}".format(total_outstanding) }}</div>
+    <div class="sub">{{ loan_count }} active loan(s)</div>
+  </div>
+  <div class="stat-card">
+    <div class="lbl">Total Interest (est.)</div>
+    <div class="val" id="stat-interest">—</div>
+    <div class="sub" id="stat-interest-sub">at current rates</div>
+  </div>
+  <div class="stat-card">
+    <div class="lbl">Debt-free Date</div>
+    <div class="val" id="stat-payoff-date">—</div>
+    <div class="sub" id="stat-payoff-sub">all loans paid off</div>
+  </div>
+</div>
+
+<!-- Per-loan table -->
+<div class="card">
+  <div class="card-title">Loan Breakdown</div>
+  <div style="overflow-x:auto">
+    <table class="payoff-table">
+      <thead>
+        <tr>
+          <th>Loan</th>
+          <th class="r">Outstanding</th>
+          <th class="r">Rate %</th>
+          <th class="r">Monthly Pmt</th>
+          <th class="r">Interest Cost</th>
+          <th class="r">Payoff Date</th>
+          <th class="r">Progress</th>
+        </tr>
+      </thead>
+      <tbody id="loan-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Balance chart -->
+<div class="card">
+  <div class="card-title">Balance Over Time</div>
+  <div class="chart-wrap" id="payoff-chart"></div>
+</div>
+
+<script>
+var LOANS = {{ loans_json|safe }};
+
+var method = 'snowball';
+var budget = 0;
+
+var METHOD_DESC = {
+  snowball:  '&#10052; <strong>Snowball:</strong> Pay minimums on all loans, then throw every extra dollar at the <em>smallest balance first</em>. Builds momentum with quick wins.',
+  avalanche: '&#9968; <strong>Avalanche:</strong> Pay minimums on all loans, then put extra towards the <em>highest interest rate first</em>. Minimises total interest paid.',
+};
+
+// Suggest a default budget: sum of reasonable monthly payments
+var suggestedBudget = Math.ceil(LOANS.reduce(function(s, l) {
+  return s + (l.outstanding > 0 ? Math.max(50, l.outstanding / 24) : 0);
+}, 0) / 50) * 50;
+if (!suggestedBudget) suggestedBudget = 200;
+
+document.getElementById('budget-input').value  = suggestedBudget;
+document.getElementById('budget-slider').max    = suggestedBudget * 4;
+document.getElementById('budget-slider').value  = suggestedBudget;
+budget = suggestedBudget;
+
+function setMethod(m) {
+  method = m;
+  document.getElementById('m-snowball').classList.toggle('active',  m==='snowball');
+  document.getElementById('m-avalanche').classList.toggle('active', m==='avalanche');
+  document.getElementById('method-desc').innerHTML = METHOD_DESC[m];
+  recalc();
+}
+
+function onBudgetInput(v) {
+  budget = parseFloat(v) || 0;
+  document.getElementById('budget-slider').value = budget;
+  recalc();
+}
+function onBudgetSlider(v) {
+  budget = parseFloat(v) || 0;
+  document.getElementById('budget-input').value = budget;
+  recalc();
+}
+
+function saveRate(loanId, inp) {
+  var rate = parseFloat(inp.value) || 0;
+  fetch('/api/loans/' + loanId + '/interest-rate', {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({interest_rate_pct: rate}),
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) {
+      var loan = LOANS.find(function(l){ return l.loan_id === loanId; });
+      if (loan) { loan.interest_rate_pct = rate; recalc(); }
+    }
+  });
+}
+
+// Amortisation: returns months to payoff and total interest
+function amortise(outstanding, payment, ratePct) {
+  if (outstanding <= 0) return {months: 0, interest: 0, schedule: []};
+  var r = ratePct / 100 / 12;
+  if (payment <= 0) return {months: -1, interest: 0, schedule: []};
+  if (r > 0 && payment <= outstanding * r) return {months: -1, interest: 0, schedule: []};
+  var bal = outstanding, totalInterest = 0, schedule = [bal];
+  for (var i = 0; i < 600; i++) {
+    if (bal <= 0.005) break;
+    var interest = bal * r;
+    var principal = Math.min(payment - interest, bal);
+    if (principal <= 0) break;
+    totalInterest += interest;
+    bal = Math.max(0, bal - principal);
+    schedule.push(Math.round(bal * 100) / 100);
+  }
+  return {months: schedule.length - 1, interest: Math.round(totalInterest * 100) / 100, schedule: schedule};
+}
+
+function addMonths(n) {
+  var d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + n);
+  var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return mon[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+function recalc() {
+  if (!LOANS.length) return;
+  document.getElementById('budget-hint').textContent = '$' + budget.toLocaleString('en-AU') + '/month';
+
+  // Sort by method
+  var sorted = LOANS.slice().filter(function(l){ return l.outstanding > 0; });
+  if (method === 'snowball')  sorted.sort(function(a,b){ return a.outstanding - b.outstanding; });
+  if (method === 'avalanche') sorted.sort(function(a,b){ return b.interest_rate_pct - a.interest_rate_pct; });
+
+  // Compute minimum payment for each loan (10% of outstanding per year / 12, min $10)
+  var minPayments = sorted.map(function(l) {
+    return Math.max(10, l.outstanding * 0.1 / 12);
+  });
+  var totalMin = minPayments.reduce(function(s,v){ return s+v; }, 0);
+  var extra = Math.max(0, budget - totalMin);
+
+  // Assign extra to priority loan
+  var payments = minPayments.map(function(mp, i) {
+    return i === 0 ? mp + extra : mp;
+  });
+
+  // Simulate payoff sequentially
+  var remaining = sorted.map(function(l){ return l.outstanding; });
+  var totalMonths = 0, totalInterest = 0;
+  var balanceHistory = sorted.map(function(l){ return [l.outstanding]; });
+  var payoffMonths = sorted.map(function(){ return -1; });
+  var paidOff = sorted.map(function(){ return false; });
+
+  for (var mo = 0; mo < 600; mo++) {
+    if (paidOff.every(Boolean)) break;
+    totalMonths = mo;
+    // Find current priority (first not paid off)
+    var priority = -1;
+    for (var pi = 0; pi < sorted.length; pi++) {
+      if (!paidOff[pi]) { priority = pi; break; }
+    }
+    // Reallocate freed payments from paid-off loans to priority
+    var freed = 0;
+    for (var fi = 0; fi < sorted.length; fi++) {
+      if (paidOff[fi]) freed += payments[fi];
+    }
+    for (var ai = 0; ai < sorted.length; ai++) {
+      if (remaining[ai] <= 0) continue;
+      var r = sorted[ai].interest_rate_pct / 100 / 12;
+      var interest = remaining[ai] * r;
+      var pay = ai === priority ? (payments[ai] + freed) : minPayments[ai];
+      totalInterest += interest;
+      var principal = Math.min(pay - interest, remaining[ai]);
+      if (principal < 0) principal = 0;
+      remaining[ai] = Math.max(0, remaining[ai] - principal);
+      if (remaining[ai] <= 0.005 && !paidOff[ai]) {
+        paidOff[ai] = true;
+        payoffMonths[ai] = mo + 1;
+      }
+      balanceHistory[ai].push(Math.round(remaining[ai] * 100) / 100);
+    }
+  }
+  var maxMonths = Math.max.apply(null, payoffMonths.filter(function(m){ return m > 0; }).concat([0]));
+
+  // Update summary cards
+  document.getElementById('stat-interest').textContent = '$' + Math.round(totalInterest).toLocaleString('en-AU');
+  if (maxMonths > 0) {
+    document.getElementById('stat-payoff-date').textContent = addMonths(maxMonths);
+    document.getElementById('stat-payoff-sub').textContent  = maxMonths + ' month' + (maxMonths!==1?'s':'') + ' from now';
+  } else {
+    document.getElementById('stat-payoff-date').textContent = maxMonths === 0 ? 'Already paid' : '—';
+    document.getElementById('stat-payoff-sub').textContent  = 'check payment amount';
+  }
+
+  // Render table
+  var tbody = '';
+  sorted.forEach(function(l, i) {
+    var pay = i === 0 ? payments[i] : minPayments[i];
+    var pm  = payoffMonths[i];
+    var pctFill = Math.min(100, Math.round(l.pct));
+    var pmStr   = pm > 0 ? '<span class="payoff-date">'+addMonths(pm)+'</span>' :
+                  (pm === 0 ? '<span style="color:#22c55e">Paid off</span>' :
+                  '<span class="payoff-never">↑ Increase payment</span>');
+    var interest = 0;
+    if (l.interest_rate_pct > 0 && pm > 0) {
+      var bal = l.outstanding, r = l.interest_rate_pct / 100 / 12;
+      for (var mi = 0; mi < pm; mi++) {
+        var int2 = bal * r;
+        bal = Math.max(0, bal - Math.min(pay - int2, bal));
+        interest += int2;
+      }
+    }
+    tbody += '<tr>' +
+      '<td class="loan-name">'+l.label+'</td>' +
+      '<td class="r" style="color:#f87171;font-weight:700">$'+l.outstanding.toLocaleString('en-AU', {maximumFractionDigits:0})+'</td>' +
+      '<td class="r"><div class="rate-cell" style="justify-content:flex-end">' +
+        '<input class="rate-inp" type="number" value="'+l.interest_rate_pct+'" min="0" max="50" step="0.01" ' +
+               'id="rate-'+l.loan_id+'" title="Annual interest rate %" />' +
+        '<button class="save-rate-btn" onclick="saveRate(\''+l.loan_id+'\', document.getElementById(\'rate-'+l.loan_id+'\'))">Save</button>' +
+      '</div></td>' +
+      '<td class="r">$'+Math.round(pay).toLocaleString('en-AU')+'</td>' +
+      '<td class="r" style="color:#f59e0b">'+( interest > 0 ? '$'+Math.round(interest).toLocaleString('en-AU') : '—' )+'</td>' +
+      '<td class="r">'+pmStr+'</td>' +
+      '<td class="r" style="min-width:90px"><div style="font-size:.75rem;color:#94a3b8">'+pctFill+'% repaid</div>' +
+        '<div class="progress-bar"><div class="progress-fill" style="width:'+pctFill+'%"></div></div></td>' +
+      '</tr>';
+  });
+  document.getElementById('loan-tbody').innerHTML = tbody;
+
+  // Plotly chart
+  var maxLen = Math.max.apply(null, balanceHistory.map(function(h){ return h.length; }));
+  var xAxis  = Array.from({length: maxLen}, function(_,i){ return addMonths(i); });
+  var traces = sorted.map(function(l, i) {
+    var h = balanceHistory[i];
+    // Pad with zeros after payoff
+    while (h.length < maxLen) h.push(0);
+    return {
+      x: xAxis, y: h, name: l.label, mode: 'lines',
+      line: {width: 2},
+    };
+  });
+  var layout = {
+    paper_bgcolor: '#1d3540', plot_bgcolor: '#0f1923',
+    font: {color: '#94a3b8', size: 11},
+    margin: {l: 60, r: 20, t: 10, b: 60},
+    xaxis: {gridcolor: '#2e4a5a', tickangle: -30},
+    yaxis: {gridcolor: '#2e4a5a', tickprefix: '$', tickformat: ',.0f'},
+    legend: {orientation: 'h', y: 1.06},
+    hovermode: 'x unified',
+  };
+  Plotly.react('payoff-chart', traces, layout, {responsive: true, displayModeBar: false});
+}
+
+// Init
+document.getElementById('method-desc').innerHTML = METHOD_DESC[method];
+recalc();
+</script>
+
+{% endif %}
+</body>
+</html>

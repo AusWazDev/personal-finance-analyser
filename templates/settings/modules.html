@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Modules — Personal Finance Analyser</title>
+  <link rel="stylesheet" href="/static/base.css">
+  <style>
+    .page-header{margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+    .page-header h1{font-size:1.6rem;color:#2A9D8F;margin:0}
+    .page-header p{color:#94a3b8;margin-top:4px;font-size:.9rem}
+    .card{background:#1d3540;border-radius:12px;padding:24px;margin-bottom:20px}
+    .btn-primary{padding:9px 22px;background:#2A9D8F;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.9rem}
+    .btn-primary:hover{background:#21867a}
+    .module-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid #1a2e3a}
+    .module-row:last-child{border-bottom:none}
+    .module-info{display:flex;flex-direction:column;gap:3px}
+    .module-name{color:#e2e8f0;font-weight:600;font-size:.95rem}
+    .module-desc{color:#64748b;font-size:.8rem}
+    .toggle-wrap{position:relative;flex-shrink:0}
+    .toggle-input{opacity:0;width:0;height:0;position:absolute}
+    .toggle-slider{display:block;width:48px;height:26px;background:#2e4a5a;border-radius:13px;cursor:pointer;transition:background .2s;position:relative}
+    .toggle-slider::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform .2s}
+    .toggle-input:checked + .toggle-slider{background:#2A9D8F}
+    .toggle-input:checked + .toggle-slider::after{transform:translateX(22px)}
+    .toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:.9rem;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999;color:white}
+    .toast.show{opacity:1}
+    .toast.ok{background:#2A9D8F}
+    .toast.err{background:#E63946}
+    .action-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .saved-note{font-size:.8rem;color:#64748b;margin-top:4px}
+  </style>
+</head>
+<body>
+
+{% include 'partials/_nav.html' %}
+
+<div class="page-header">
+  <div>
+    <h1>Modules</h1>
+    <p>Enable or disable feature modules. Disabled modules are hidden from the navigation.</p>
+  </div>
+  <div class="action-row">
+    <button class="btn-primary" onclick="saveModules()">Save</button>
+  </div>
+</div>
+
+<div class="card">
+  {% set LABELS = {
+    "budgets":         ("Budgets", "Monthly spending limits and budget alerts"),
+    "business":        ("Business & Tax", "FY summary, GST tracking, and reimbursements"),
+    "investments":     ("Investments", "Capital gains tracking and investment reporting"),
+    "loans":           ("Loans", "Loan records, repayment tracking, and statements"),
+    "goals":           ("Goals", "Savings goals with progress tracking and projections"),
+    "payin4":          ("Pay-in-4 / PayPal", "PayPal Pay-in-4 plan detection and instalment linking"),
+    "transfers":       ("Transfer Detection", "Inter-account transfer pairing and superseded transactions"),
+    "commitments":     ("Commitments", "Recurring commitment detection and upcoming payment projection"),
+    "recommendations": ("AI Recommendations", "Claude AI spending recommendations and insights"),
+    "coverage":        ("Statement Coverage", "Statement coverage checker to detect gaps in import history"),
+  } %}
+  {% for key in module_keys %}
+  {% set info = LABELS.get(key, (key, "")) %}
+  <div class="module-row">
+    <div class="module-info">
+      <span class="module-name">{{ info[0] }}</span>
+      <span class="module-desc">{{ info[1] }}</span>
+    </div>
+    <div class="toggle-wrap">
+      <label>
+        <input type="checkbox" class="toggle-input" data-key="{{ key }}"
+               {% if modules.get(key, true) %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+  {% endfor %}
+
+  <div style="margin-top:20px;display:flex;gap:10px;align-items:center">
+    <button class="btn-primary" onclick="saveModules()">Save</button>
+    <span id="save-note" class="saved-note"></span>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+function showToast(msg, ok) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (ok ? 'ok' : 'err');
+  setTimeout(function() { t.className = 'toast'; }, 3500);
+}
+
+function saveModules() {
+  var modules = {};
+  document.querySelectorAll('.toggle-input').forEach(function(inp) {
+    modules[inp.dataset.key] = inp.checked;
+  });
+  fetch('/api/modules', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({modules: modules})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      showToast('Saved — ' + d.saved + ' module' + (d.saved !== 1 ? 's' : '') + ' enabled.', true);
+      document.getElementById('save-note').textContent = 'Last saved ' + new Date().toLocaleTimeString();
+    } else {
+      showToast('Save failed.', false);
+    }
+  })
+  .catch(function() { showToast('Save failed.', false); });
+}
+</script>
+</body>
+</html>
