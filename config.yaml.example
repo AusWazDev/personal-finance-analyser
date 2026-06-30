@@ -24,8 +24,8 @@ server:
   # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
   # secret_key: <32-char hex string>
 
-  # Optional: GitHub repo slug for auto-update checks (e.g. "yourname/pfa").
-  # update_check_repo: yourname/pfa
+  # Optional: GitHub repo slug for auto-update checks.
+  update_check_repo: AusWazDev/personal-finance-analyser
 
   # Optional: Sentry DSN for crash reporting (opt-in).
   # sentry_dsn: https://xxx@sentry.io/yyy
